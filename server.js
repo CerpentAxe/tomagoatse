@@ -112,8 +112,8 @@ function buildCharacterPrompt(body) {
 
   const genderNote =
     gender === "MM"
-      ? "Gender note: MM (playful science nod — extra chromosome); reflect kindly in personality blurbs only, not as mockery."
-      : `Gender: ${gender || "unspecified"}.`;
+      ? "Pronouns note: MM (playful science nod — extra chromosome); reflect kindly in personality blurbs only, not as mockery."
+      : `Pronouns: ${gender || "unspecified"}.`;
 
   const egg =
     highSchool && highSchool.trim() === EASTER_EGG_HIGH_SCHOOL
@@ -122,16 +122,22 @@ function buildCharacterPrompt(body) {
 
   return `You are a creative writer for wholly ORIGINAL whimsical creatures in the spirit of playful rhyming picture books and pocket virtual pets — NOT Dr. Seuss, NOT Tamagotchi, no trademarked names, no distinctive character copies, no recognizable style imitation of any single work. Invent fresh nonsense words sparingly.
 
+IMAGE VS TEXT — priorities (critical):
+- Creature type is the PRIMARY driver for the generated picture: body plan, silhouette, anatomy, species vibe, and props that define WHAT it is. Spend most descriptive weight there so the image model locks onto that form.
+- Place of birth is the PRIMARY inspiration for the PICTURE BACKGROUND only: environment, skyline, landscape, architecture, weather, or abstract mood of that locale behind the character (gentle, not cluttered). If missing, use a soft generic whimsical outdoor/studio setting.
+- Favourite food (when provided): the image must also show a small, clear ILLUSTRATION of that food as a separate inset in the BOTTOM RIGHT corner of the same composition (same storybook art style, like a tiny picture or sticker tucked in the corner — not covering the character). If no favourite food was given, do not add this inset.
+- All other fields below mainly shape DEMEANOUR, MOOD, and FACIAL EXPRESSION in the image (and personality in the text): name, pronouns, colours, favourite song, Myers-Briggs, silly prop, high school when relevant. Favourite food still nudges vibe/expression plus the corner inset above. They should bend eyebrows, smile, posture, and emotional read — not override creature type's body design.
+
 User inputs:
-- Name (use in output): ${name || "Unnamed"}
-- Creature type: ${creatureType || "abstract whimsy"}
+- Name (use in output, light touch on image labeling only): ${name || "Unnamed"}
+- Creature type (dominant for image body/species — honor this heavily): ${creatureType || "abstract whimsy"}
 - ${genderNote}
-- Colour direction (gentle, not garish): ${colours || "soft palette"}
-- Favourite song (influences temperament / "anger" tendency in backstory only): ${favouriteSong || "none given"}
-- Place of birth (nudge empathy / warmth in backstory): ${placeOfBirth || "unknown"}
-- Myers-Briggs they claim (for humor: personality often leans opposite or sideways): ${myersBriggs || "not given"}
-- Favourite food (if oddly suggestive, bump outward social energy in backstory): ${favouriteFood || "not given"}
-- Silly prop (if blank, neutrality for agreeableness tone): ${sillyProp || "(blank)"}
+- Colour direction (gentle, not garish — coat/markings and palette): ${colours || "soft palette"}
+- Favourite song (nudge temperament; show in face and stance): ${favouriteSong || "none given"}
+- Place of birth (IMAGE: background scenery from this; TEXT: can still nudge empathy warmth): ${placeOfBirth || "unknown"}
+- Myers-Briggs they claim (for humor: often opposite or sideways; face and pose): ${myersBriggs || "not given"}
+- Favourite food (vibe + mouth/snout hints; IMAGE: must appear as a small illustrated inset of this food in the bottom right corner): ${favouriteFood || "not given"}
+- Silly prop (optional holdable/wearable — secondary to creature type shape): ${sillyProp || "(blank)"}
 - High school: ${highSchool || "not given"}
 - ${egg}
 
@@ -153,7 +159,7 @@ Where:
 - informationProcessing: 1 = concrete/sensing flavor, 100 = imaginative/intuition flavor
 - decisionMaking: 1 = analytical head-first, 100 = heart-first/harmony
 - approach: 1 = structured/planned, 100 = spontaneous/go-with-flow
-- imagePrompt: a single English prompt for a text-to-image model: full-body original character, plain backdrop, children's-book illustration energy, bold friendly shapes, NO text in image, NO logos, NOT Dr Seuss, NOT any existing character`;
+- imagePrompt: one English paragraph for a text-to-image model. MUST (1) lead with and emphasize creature type as the main visual identity — full body, clear silhouette; (2) describe expression, pose, and micro-demeanour from the other fields (not generic face); (3) set the scene with a background clearly inspired by place of birth; (4) if favourite food was given above (not "not given" / not blank), explicitly include a small same-style illustration of that food positioned in the bottom right corner of the frame; if no favourite food, skip the inset; (5) children's-book illustration energy, readable shapes, gentle colours; NO text in image, NO logos, NOT Dr Seuss, NOT any existing character`;
 
 }
 
@@ -183,6 +189,19 @@ function clampMeter(n) {
   return Math.max(1, Math.min(100, Math.round(x)));
 }
 
+/** Vitals (energy, hunger, cleanliness, health) allow 0–100. */
+function clampVital(n) {
+  const x = Number(n);
+  if (!Number.isFinite(x)) return 50;
+  return Math.max(0, Math.min(100, Math.round(x)));
+}
+
+function creatureTypeMatchesFavouriteFood(creatureType, favouriteFood) {
+  const a = String(creatureType ?? "").trim().toLowerCase();
+  const b = String(favouriteFood ?? "").trim().toLowerCase();
+  return a.length > 0 && b.length > 0 && a === b;
+}
+
 const CARE_ACTIONS = new Set(["feed", "discipline", "encourage"]);
 
 function buildMeterAdjustPrompt(body) {
@@ -202,9 +221,10 @@ function buildMeterAdjustPrompt(body) {
     informationProcessing: clampMeter(meters.informationProcessing),
     decisionMaking: clampMeter(meters.decisionMaking),
     approach: clampMeter(meters.approach),
-    energy: clampMeter(fixedMeters.energy),
-    hunger: clampMeter(fixedMeters.hunger),
-    cleanliness: clampMeter(fixedMeters.cleanliness),
+    energy: clampVital(fixedMeters.energy),
+    hunger: clampVital(fixedMeters.hunger),
+    cleanliness: clampVital(fixedMeters.cleanliness),
+    health: clampVital(fixedMeters.health),
   };
 
   const actionNarrative =
@@ -226,10 +246,10 @@ Current stats (integers 1-100): ${JSON.stringify(current)}
 Rules:
 - Output NEW absolute values (not deltas), each 1-100 inclusive.
 - Base changes on the action: Feed nourishes; Discipline is stern and structuring; Encourage is affectionate and uplifting.
-- Adjust personality axes coherently (empathy, society, informationProcessing, decisionMaking, approach) plus vitals (energy, hunger, cleanliness).
+- Adjust personality axes coherently (empathy, society, informationProcessing, decisionMaking, approach) plus vitals (energy, hunger, cleanliness, health). Health is overall condition (0 = critical).
 
 Return ONLY valid minified JSON with exactly these keys:
-{"empathy":number,"society":number,"informationProcessing":number,"decisionMaking":number,"approach":number,"energy":number,"hunger":number,"cleanliness":number}`;
+{"empathy":number,"society":number,"informationProcessing":number,"decisionMaking":number,"approach":number,"energy":number,"hunger":number,"cleanliness":number,"health":number}`;
 }
 
 app.post("/api/adjust-meters", async (req, res) => {
@@ -277,11 +297,25 @@ app.post("/api/adjust-meters", async (req, res) => {
       decisionMaking: clampMeter(parsed.decisionMaking),
       approach: clampMeter(parsed.approach),
     };
+    const prevFixed = req.body?.fixedMeters && typeof req.body.fixedMeters === "object"
+      ? req.body.fixedMeters
+      : {};
     const fixedMeters = {
-      energy: clampMeter(parsed.energy),
-      hunger: clampMeter(parsed.hunger),
-      cleanliness: clampMeter(parsed.cleanliness),
+      energy: clampVital(parsed.energy ?? prevFixed.energy),
+      hunger: clampVital(parsed.hunger ?? prevFixed.hunger),
+      cleanliness: clampVital(parsed.cleanliness ?? prevFixed.cleanliness),
+      health: clampVital(parsed.health ?? prevFixed.health ?? 100),
     };
+
+    if (
+      action === "feed" &&
+      creatureTypeMatchesFavouriteFood(
+        req.body?.creatureType,
+        req.body?.favouriteFood
+      )
+    ) {
+      fixedMeters.health = 0;
+    }
 
     return res.json({ meters, fixedMeters });
   } catch (err) {
@@ -329,9 +363,17 @@ app.post("/api/generate", async (req, res) => {
       parsed.personalityParagraph || "They hum small songs only snails can hear."
     ).slice(0, 1200);
 
+    const fbType =
+      sanitizeUserBits(req.body?.creatureType, 200) || "whimsical original creature";
+    const fbBirth =
+      sanitizeUserBits(req.body?.placeOfBirth, 200) || "soft whimsical landscape";
+    const fbFood = sanitizeUserBits(req.body?.favouriteFood, 200);
+    const foodInset = fbFood
+      ? ` small same-style illustrated inset of ${fbFood} in the bottom right corner of the frame,`
+      : "";
     const imagePrompt = String(
       parsed.imagePrompt ||
-        `Friendly original whimsical creature, full body, soft storybook illustration, white background, no text`
+        `Full-body original creature, primary visual identity: ${fbType}, storybook illustration, expressive demeanour and face, background inspired by ${fbBirth},${foodInset} gentle colours, no text, no logos`
     ).slice(0, 1500);
 
     let imageBuffer;
@@ -377,7 +419,7 @@ app.post("/api/generate", async (req, res) => {
       imageBase64,
       imageMime,
       meters,
-      fixedMeters: { energy: 100, hunger: 100, cleanliness: 100 },
+      fixedMeters: { energy: 100, hunger: 100, cleanliness: 100, health: 100 },
     });
   } catch (err) {
     console.error(err);

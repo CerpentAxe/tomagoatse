@@ -21,6 +21,68 @@
   box-sizing: border-box;
 }
 
+.lightning-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  pointer-events: none;
+  transition: none;
+}
+
+.caption-intro-dialog {
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  z-index: 10001;
+}
+
+.caption-intro-dialog::backdrop {
+  background: rgba(30, 42, 59, 0.55);
+  cursor: pointer;
+}
+
+.caption-intro-wrap {
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  box-sizing: border-box;
+  cursor: pointer;
+}
+
+.caption-intro-panel {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 1.5rem 1.35rem;
+  box-shadow: 0 20px 50px rgba(30, 42, 59, 0.3);
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  max-width: min(36rem, calc(100vw - 2rem));
+}
+
+.caption-intro-body {
+  margin: 0 0 1rem;
+  font-size: 1.05rem;
+  line-height: 1.55;
+  color: var(--ink);
+}
+
+.caption-intro-hint {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-align: center;
+  font-family: var(--font-display);
+}
+
 body {
   margin: 0;
   min-height: 100vh;
@@ -502,4 +564,29 @@ select:focus {
 .care-dialog-ok {
   width: 100%;
   margin-top: 0.25rem;
+}
+
+.btn-new-abomination {
+  width: 100%;
+  margin-top: 1rem;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  border: 2px dashed rgba(30, 42, 59, 0.35);
+  border-radius: 14px;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(180deg, #f4f0ff, #e8e2f5);
+  color: var(--ink);
+  transition: transform 0.1s ease, border-color 0.15s, box-shadow 0.15s;
+}
+
+.btn-new-abomination:hover {
+  transform: translateY(-1px);
+  border-color: #7c6bb0;
+  box-shadow: 0 6px 20px rgba(124, 107, 176, 0.2);
+}
+
+.btn-new-abomination:active {
+  transform: translateY(0);
 }

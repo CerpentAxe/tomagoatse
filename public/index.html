@@ -13,10 +13,18 @@
     />
   </head>
   <body>
+    <div
+      id="lightning-overlay"
+      class="lightning-overlay"
+      hidden
+      aria-hidden="true"
+    ></div>
     <div class="bg-noise" aria-hidden="true"></div>
     <main class="shell">
       <header class="hero">
-        <p class="hero-kicker">Wholly original • pocket-sized vibes</p>
+        <p class="hero-kicker">
+          Wholly original • pocket-sized vibes • gotta hatch ’em all
+        </p>
         <h1>Tomagoatse Hatchery</h1>
         <p class="hero-sub">
           Dream up a creature with storybook whimsy and virtual-pet charm—no
@@ -36,7 +44,7 @@
             <input name="creatureType" type="text" placeholder="e.g. moss-backed jitternewt" required />
           </label>
           <label class="field">
-            <span class="label">Gender <small>(we’ll use this)</small></span>
+            <span class="label">Pronouns <small>(we’ll use this)</small></span>
             <select name="gender" required>
               <option value="">Choose…</option>
               <option value="female">She / her</option>
@@ -130,7 +138,7 @@
             <figcaption id="result-caption" class="caption"></figcaption>
           </figure>
           <div class="meters">
-            <h3 class="meters-title">Personality meters <small>(AI-picked 1–100)</small></h3>
+            <h3 class="meters-title">Personality meters</h3>
             <div id="meter-dynamic" class="meter-list"></div>
             <h3 class="meters-title">Vitals</h3>
             <div id="meter-fixed" class="meter-list"></div>
@@ -145,10 +153,22 @@
                 Encourage
               </button>
             </div>
+            <button type="button" class="btn-new-abomination" id="btn-new-abomination">
+              Create new abomination
+            </button>
           </div>
         </div>
       </section>
     </main>
+
+    <dialog id="caption-intro-dialog" class="caption-intro-dialog">
+      <div class="caption-intro-wrap">
+        <div class="caption-intro-panel">
+          <p id="caption-intro-text" class="caption-intro-body"></p>
+          <p class="caption-intro-hint">Click anywhere to continue</p>
+        </div>
+      </div>
+    </dialog>
 
     <dialog id="care-dialog" class="care-dialog">
       <div class="care-dialog-panel">
