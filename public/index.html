@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tomagoatse Hatchery</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="bg-noise" aria-hidden="true"></div>
+    <main class="shell">
+      <header class="hero">
+        <p class="hero-kicker">Wholly original • pocket-sized vibes</p>
+        <h1>Tomagoatse Hatchery</h1>
+        <p class="hero-sub">
+          Dream up a creature with storybook whimsy and virtual-pet charm—no
+          copies, just friendly shapes and meters to love.
+        </p>
+      </header>
+
+      <!-- Screen: form -->
+      <section id="screen-form" class="screen card" aria-live="polite">
+        <form id="hatch-form" class="form-grid" novalidate>
+          <label class="field">
+            <span class="label">Name <small>(we’ll use this)</small></span>
+            <input name="name" type="text" autocomplete="nickname" required />
+          </label>
+          <label class="field">
+            <span class="label">Creature type <small>(we’ll use this too)</small></span>
+            <input name="creatureType" type="text" placeholder="e.g. moss-backed jitternewt" required />
+          </label>
+          <label class="field">
+            <span class="label">Gender <small>(we’ll use this)</small></span>
+            <select name="gender" required>
+              <option value="">Choose…</option>
+              <option value="female">She / her</option>
+              <option value="male">He / him</option>
+              <option value="nonbinary">They / them</option>
+              <option value="other">Other / ask</option>
+              <option value="MM">MM — an extra chromosome (kind science nod)</option>
+            </select>
+          </label>
+          <label class="field field-span2">
+            <span class="label">Colours <small>(be gentle on the eyes)</small></span>
+            <input name="colours" type="text" placeholder="soft mint, warm apricot, dusty lavender" />
+          </label>
+          <label class="field">
+            <span class="label">Favourite song <small>(nudges the temper / “anger” angle)</small></span>
+            <input name="favouriteSong" type="text" />
+          </label>
+          <label class="field">
+            <span class="label">Place of birth <small>(nudges empathy warmth)</small></span>
+            <input name="placeOfBirth" type="text" />
+          </label>
+          <label class="field">
+            <span class="label">Myers-Briggs <small>(often lands opposite for fun)</small></span>
+            <select name="myersBriggs">
+              <option value="">Mystery blob</option>
+              <option value="INTJ">INTJ</option>
+              <option value="INTP">INTP</option>
+              <option value="ENTJ">ENTJ</option>
+              <option value="ENTP">ENTP</option>
+              <option value="INFJ">INFJ</option>
+              <option value="INFP">INFP</option>
+              <option value="ENFJ">ENFJ</option>
+              <option value="ENFP">ENFP</option>
+              <option value="ISTJ">ISTJ</option>
+              <option value="ISFJ">ISFJ</option>
+              <option value="ESTJ">ESTJ</option>
+              <option value="ESFJ">ESFJ</option>
+              <option value="ISTP">ISTP</option>
+              <option value="ISFP">ISFP</option>
+              <option value="ESTP">ESTP</option>
+              <option value="ESFP">ESFP</option>
+            </select>
+          </label>
+          <label class="field">
+            <span class="label">Favourite food <small>(oddly suggestive? more outward pep)</small></span>
+            <input name="favouriteFood" type="text" />
+          </label>
+          <label class="field field-span2">
+            <span class="label">Silly prop <small>(blank keeps agreeableness neutral)</small></span>
+            <input name="sillyProp" type="text" placeholder="Leave empty for calm defaults" />
+          </label>
+          <label class="field field-span2">
+            <span class="label">High school <small>(irrelevant… unless you guess right)</small></span>
+            <input name="highSchool" type="text" placeholder="Probably doesn’t matter" />
+          </label>
+          <div class="actions field-span2">
+            <button type="submit" class="btn-primary">Bear my child</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Screen: loading -->
+      <section id="screen-loading" class="screen card screen-hidden" hidden aria-live="assertive">
+        <div class="loader-egg" aria-hidden="true">
+          <div class="loader-face">
+            <span class="eye left"></span>
+            <span class="eye right"></span>
+            <span class="smile"></span>
+          </div>
+        </div>
+        <p class="loading-message" id="loading-text">If you see this, it is working</p>
+        <p class="loading-hint">The models might be waking up—first call can take a little.</p>
+      </section>
+
+      <!-- Screen: error -->
+      <section id="screen-error" class="screen card screen-hidden screen-error" hidden aria-live="assertive">
+        <p class="error-title">Oh, shoot, Nick needs to fix something</p>
+        <p class="error-detail" id="error-detail"></p>
+        <button type="button" class="btn-secondary" id="btn-retry">Try again</button>
+      </section>
+
+      <!-- Screen: result -->
+      <section id="screen-result" class="screen card screen-hidden" hidden aria-live="polite">
+        <div class="result-header">
+          <h2 id="result-name"></h2>
+          <p id="result-tagline" class="tagline"></p>
+        </div>
+        <div class="result-body">
+          <figure class="portrait">
+            <img id="result-image" alt="" width="512" height="512" />
+            <figcaption id="result-caption" class="caption"></figcaption>
+          </figure>
+          <div class="meters">
+            <h3 class="meters-title">Personality meters <small>(AI-picked 1–100)</small></h3>
+            <div id="meter-dynamic" class="meter-list"></div>
+            <h3 class="meters-title">Vitals</h3>
+            <div id="meter-fixed" class="meter-list"></div>
+            <div class="care-actions" role="group" aria-label="Care actions">
+              <button type="button" class="btn-care btn-care-feed" id="btn-feed" disabled>
+                Feed
+              </button>
+              <button type="button" class="btn-care btn-care-discipline" id="btn-discipline" disabled>
+                Discipline
+              </button>
+              <button type="button" class="btn-care btn-care-encourage" id="btn-encourage" disabled>
+                Encourage
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="care-dialog" class="care-dialog">
+      <div class="care-dialog-panel">
+        <p id="care-dialog-first" class="care-dialog-line care-dialog-first"></p>
+        <p id="care-dialog-action" class="care-dialog-line care-dialog-action"></p>
+        <p id="care-dialog-meter-note" class="care-dialog-note" hidden></p>
+        <button type="button" class="btn-primary care-dialog-ok" id="care-dialog-close">
+          OK
+        </button>
+      </div>
+    </dialog>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
