@@ -9,6 +9,12 @@ const btnRetry = document.getElementById("btn-retry");
 const resultName = document.getElementById("result-name");
 const resultTagline = document.getElementById("result-tagline");
 const resultImage = document.getElementById("result-image");
+const portraitDropZone = document.getElementById("portrait-drop-zone");
+const dragThumbsRow = document.getElementById("drag-thumbs-row");
+const foodDragWrap = document.getElementById("food-drag-wrap");
+const foodDragImg = document.getElementById("food-drag-img");
+const fearDragWrap = document.getElementById("fear-drag-wrap");
+const fearDragImg = document.getElementById("fear-drag-img");
 const resultCaption = document.getElementById("result-caption");
 const meterDynamic = document.getElementById("meter-dynamic");
 const meterFixed = document.getElementById("meter-fixed");
@@ -30,6 +36,9 @@ const WORKING_MSG = "If you see this, it is working";
 const LIGHTNING_STEP_MS = 100;
 /** One strike = black → white → black → white */
 const LIGHTNING_STRIKES = 4;
+/** dataTransfer payloads for drag-to-care */
+const FEED_DRAG_TYPE = "tomagoatse-feed";
+const DISCIPLINE_DRAG_TYPE = "tomagoatse-discipline";
 
 async function runLightningFlash() {
   if (!lightningOverlay) return;
@@ -220,6 +229,22 @@ function setCareButtonsDisabled(disabled) {
   btnFeed.disabled = disabled;
   btnDiscipline.disabled = disabled;
   btnEncourage.disabled = disabled;
+  syncCareDragThumbnails();
+}
+
+function syncCareDragThumbnails() {
+  if (foodDragImg && foodDragWrap && !foodDragWrap.hidden) {
+    const hasSrc = foodDragImg.getAttribute("src");
+    foodDragImg.draggable = Boolean(hasSrc && careSession && !btnFeed.disabled);
+  } else if (foodDragImg) {
+    foodDragImg.draggable = false;
+  }
+  if (fearDragImg && fearDragWrap && !fearDragWrap.hidden) {
+    const hasSrc = fearDragImg.getAttribute("src");
+    fearDragImg.draggable = Boolean(hasSrc && careSession && !btnDiscipline.disabled);
+  } else if (fearDragImg) {
+    fearDragImg.draggable = false;
+  }
 }
 
 function syncFeedButtonLabel() {
@@ -309,6 +334,54 @@ async function handleCareAction(action) {
   }
 }
 
+if (foodDragImg) {
+  foodDragImg.addEventListener("dragstart", (e) => {
+    if (!foodDragImg.draggable) {
+      e.preventDefault();
+      return;
+    }
+    e.dataTransfer.setData("text/plain", FEED_DRAG_TYPE);
+    e.dataTransfer.effectAllowed = "copy";
+  });
+}
+
+if (fearDragImg) {
+  fearDragImg.addEventListener("dragstart", (e) => {
+    if (!fearDragImg.draggable) {
+      e.preventDefault();
+      return;
+    }
+    e.dataTransfer.setData("text/plain", DISCIPLINE_DRAG_TYPE);
+    e.dataTransfer.effectAllowed = "copy";
+  });
+}
+
+if (portraitDropZone) {
+  portraitDropZone.addEventListener("dragover", (e) => {
+    if (![...e.dataTransfer.types].includes("text/plain")) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  });
+  portraitDropZone.addEventListener("dragenter", (e) => {
+    if ([...e.dataTransfer.types].includes("text/plain")) {
+      portraitDropZone.classList.add("portrait-drag-over");
+    }
+  });
+  portraitDropZone.addEventListener("dragleave", (e) => {
+    if (!portraitDropZone.contains(e.relatedTarget)) {
+      portraitDropZone.classList.remove("portrait-drag-over");
+    }
+  });
+  portraitDropZone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    portraitDropZone.classList.remove("portrait-drag-over");
+    if (!careSession || btnFeed.disabled) return;
+    const t = e.dataTransfer.getData("text/plain");
+    if (t === FEED_DRAG_TYPE) handleCareAction("feed");
+    else if (t === DISCIPLINE_DRAG_TYPE) handleCareAction("discipline");
+  });
+}
+
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const fd = new FormData(form);
@@ -340,6 +413,37 @@ form.addEventListener("submit", async (e) => {
     resultImage.src = `data:${mime};base64,${data.imageBase64}`;
     resultImage.alt = `Portrait of ${displayName}`;
 
+    const hasFoodThumb = Boolean(data.foodImageBase64);
+    const hasFearThumb = Boolean(data.fearImageBase64);
+    if (dragThumbsRow) {
+      dragThumbsRow.hidden = !hasFoodThumb && !hasFearThumb;
+    }
+
+    if (hasFoodThumb && foodDragWrap && foodDragImg) {
+      foodDragWrap.hidden = false;
+      const fm = data.foodImageMime || "image/png";
+      foodDragImg.src = `data:${fm};base64,${data.foodImageBase64}`;
+      foodDragImg.alt = `Draggable ${String(body.favouriteFood || "food").slice(0, 80)}`;
+    } else if (foodDragWrap && foodDragImg) {
+      foodDragWrap.hidden = true;
+      foodDragImg.removeAttribute("src");
+      foodDragImg.alt = "";
+    }
+
+    if (hasFearThumb && fearDragWrap && fearDragImg) {
+      fearDragWrap.hidden = false;
+      const fm = data.fearImageMime || "image/png";
+      fearDragImg.src = `data:${fm};base64,${data.fearImageBase64}`;
+      const bf = String(body.biggestFear || "").trim();
+      fearDragImg.alt = bf
+        ? `Their fear (“${bf.slice(0, 70)}${bf.length > 70 ? "…" : ""}”) — drag to discipline`
+        : `What ${displayName} is scared of — drag to discipline`;
+    } else if (fearDragWrap && fearDragImg) {
+      fearDragWrap.hidden = true;
+      fearDragImg.removeAttribute("src");
+      fearDragImg.alt = "";
+    }
+
     const m = data.meters || {};
     const f = data.fixedMeters || {
       energy: 100,
@@ -367,6 +471,7 @@ form.addEventListener("submit", async (e) => {
     renderMetersFromSession();
     syncFeedButtonLabel();
     setCareButtonsDisabled(false);
+    syncCareDragThumbnails();
 
     await runLightningFlash();
     // Hide loading so the caption dialog is not stacked over the spinner
@@ -384,6 +489,20 @@ form.addEventListener("submit", async (e) => {
 function goToCreateForm(options = {}) {
   if (careDialog.open) careDialog.close();
   if (captionIntroDialog?.open) captionIntroDialog.close();
+  if (dragThumbsRow) dragThumbsRow.hidden = true;
+  if (foodDragWrap) foodDragWrap.hidden = true;
+  if (fearDragWrap) fearDragWrap.hidden = true;
+  if (foodDragImg) {
+    foodDragImg.removeAttribute("src");
+    foodDragImg.alt = "";
+    foodDragImg.draggable = false;
+  }
+  if (fearDragImg) {
+    fearDragImg.removeAttribute("src");
+    fearDragImg.alt = "";
+    fearDragImg.draggable = false;
+  }
+  portraitDropZone?.classList.remove("portrait-drag-over");
   if (options.resetForm) form.reset();
   careSession = null;
   showScreen("form");

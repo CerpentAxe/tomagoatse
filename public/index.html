@@ -93,6 +93,15 @@
             <input name="favouriteFood" type="text" />
           </label>
           <label class="field field-span2">
+            <span class="label">Biggest fear</span>
+            <input
+              name="biggestFear"
+              type="text"
+              placeholder="What would send them hiding under the bed?"
+              autocomplete="off"
+            />
+          </label>
+          <label class="field field-span2">
             <span class="label">Silly prop <small>(blank keeps agreeableness neutral)</small></span>
             <input name="sillyProp" type="text" placeholder="Leave empty for calm defaults" />
           </label>
@@ -108,15 +117,29 @@
 
       <!-- Screen: loading -->
       <section id="screen-loading" class="screen card screen-hidden" hidden aria-live="assertive">
-        <div class="loader-egg" aria-hidden="true">
-          <div class="loader-face">
-            <span class="eye left"></span>
-            <span class="eye right"></span>
-            <span class="smile"></span>
+        <div class="loader-bear" aria-hidden="true">
+          <div class="loader-bear-shadow"></div>
+          <div class="loader-bear-dance">
+            <div class="loader-bear-head">
+              <span class="loader-bear-ear"></span>
+              <span class="loader-bear-ear loader-bear-ear--right"></span>
+              <span class="loader-bear-eye"></span>
+              <span class="loader-bear-eye loader-bear-eye--right"></span>
+              <span class="loader-bear-snout"></span>
+              <span class="loader-bear-smile"></span>
+            </div>
+            <div class="loader-bear-torso">
+              <span class="loader-bear-arm loader-bear-arm--left"></span>
+              <span class="loader-bear-arm loader-bear-arm--right"></span>
+            </div>
+            <div class="loader-bear-legs">
+              <span class="loader-bear-leg loader-bear-leg--left"></span>
+              <span class="loader-bear-leg loader-bear-leg--right"></span>
+            </div>
           </div>
         </div>
         <p class="loading-message" id="loading-text">If you see this, it is working</p>
-        <p class="loading-hint">The models might be waking up—first call can take a little.</p>
+        <p class="loading-hint">The scientists are working, I promise you they are working, if you see this message they are working.</p>
       </section>
 
       <!-- Screen: error -->
@@ -134,11 +157,46 @@
         </div>
         <div class="result-body">
           <figure class="portrait">
-            <img id="result-image" alt="" width="512" height="512" />
+            <div class="portrait-drop-zone" id="portrait-drop-zone">
+              <img id="result-image" alt="" width="512" height="512" />
+            </div>
             <figcaption id="result-caption" class="caption"></figcaption>
+            <div id="drag-thumbs-row" class="drag-thumbs-row" hidden>
+              <div id="food-drag-wrap" class="food-drag-wrap">
+                <p class="food-drag-hint">
+                  Drag food onto the hatchling to <strong>feed</strong>.
+                </p>
+                <img
+                  id="food-drag-img"
+                  class="food-drag-img"
+                  src=""
+                  alt=""
+                  draggable="true"
+                  width="160"
+                  height="160"
+                />
+              </div>
+              <div id="fear-drag-wrap" class="food-drag-wrap fear-drag-wrap" hidden>
+                <p class="food-drag-hint">
+                  Drag what they fear onto the hatchling to <strong>discipline</strong>.
+                </p>
+                <img
+                  id="fear-drag-img"
+                  class="food-drag-img fear-drag-img"
+                  src=""
+                  alt=""
+                  draggable="true"
+                  width="160"
+                  height="160"
+                />
+              </div>
+            </div>
           </figure>
           <div class="meters">
-            <h3 class="meters-title">Personality meters</h3>
+            <h3 class="meters-title">
+              Personality meters
+              <small>(sometimes lower is good… loser)</small>
+            </h3>
             <div id="meter-dynamic" class="meter-list"></div>
             <h3 class="meters-title">Vitals</h3>
             <div id="meter-fixed" class="meter-list"></div>
@@ -164,6 +222,14 @@
     <dialog id="caption-intro-dialog" class="caption-intro-dialog">
       <div class="caption-intro-wrap">
         <div class="caption-intro-panel">
+          <div class="caption-intro-lead">
+            <p class="caption-intro-lead-line">
+              <strong>Muffled Dr. Frankenstein-esque voice: "Science: I nailed it! Everything else? Unclear."</strong>
+            </p>
+            <p class="caption-intro-lead-line">
+              <strong>"I regret nothing—wait, no, no, no, I regret this.</strong>
+            </p>
+          </div>
           <p id="caption-intro-text" class="caption-intro-body"></p>
           <p class="caption-intro-hint">Click anywhere to continue</p>
         </div>

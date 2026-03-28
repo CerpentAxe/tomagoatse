@@ -107,6 +107,7 @@ function buildCharacterPrompt(body) {
   const placeOfBirth = sanitizeUserBits(body.placeOfBirth);
   const myersBriggs = sanitizeUserBits(body.myersBriggs, 40);
   const favouriteFood = sanitizeUserBits(body.favouriteFood);
+  const biggestFear = sanitizeUserBits(body.biggestFear, 500);
   const sillyProp = sanitizeUserBits(body.sillyProp);
   const highSchool = sanitizeUserBits(body.highSchool);
 
@@ -126,7 +127,7 @@ IMAGE VS TEXT — priorities (critical):
 - Creature type is the PRIMARY driver for the generated picture: body plan, silhouette, anatomy, species vibe, and props that define WHAT it is. Spend most descriptive weight there so the image model locks onto that form.
 - Place of birth is the PRIMARY inspiration for the PICTURE BACKGROUND only: environment, skyline, landscape, architecture, weather, or abstract mood of that locale behind the character (gentle, not cluttered). If missing, use a soft generic whimsical outdoor/studio setting.
 - Favourite food (when provided): the image must also show a small, clear ILLUSTRATION of that food as a separate inset in the BOTTOM RIGHT corner of the same composition (same storybook art style, like a tiny picture or sticker tucked in the corner — not covering the character). If no favourite food was given, do not add this inset.
-- All other fields below mainly shape DEMEANOUR, MOOD, and FACIAL EXPRESSION in the image (and personality in the text): name, pronouns, colours, favourite song, Myers-Briggs, silly prop, high school when relevant. Favourite food still nudges vibe/expression plus the corner inset above. They should bend eyebrows, smile, posture, and emotional read — not override creature type's body design.
+- All other fields below mainly shape DEMEANOUR, MOOD, and FACIAL EXPRESSION in the image (and personality in the text): name, pronouns, colours, favourite song, Myers-Briggs, silly prop, high school when relevant. Favourite food still nudges vibe/expression plus the corner inset above. "Biggest fear" must show up in personality text (tone, quirks, worries) and must flow into fearImagePrompt (see JSON field). They should bend eyebrows, smile, posture, and emotional read — not override creature type's body design.
 
 User inputs:
 - Name (use in output, light touch on image labeling only): ${name || "Unnamed"}
@@ -137,6 +138,7 @@ User inputs:
 - Place of birth (IMAGE: background scenery from this; TEXT: can still nudge empathy warmth): ${placeOfBirth || "unknown"}
 - Myers-Briggs they claim (for humor: often opposite or sideways; face and pose): ${myersBriggs || "not given"}
 - Favourite food (vibe + mouth/snout hints; IMAGE: must appear as a small illustrated inset of this food in the bottom right corner): ${favouriteFood || "not given"}
+- Biggest fear (TEXT: work this into oneLiner and personalityParagraph — habits, avoidance, comic dread; do not trivialize cruelly): ${biggestFear || "not given — invent a mild whimsical fear consistent with the rest"}
 - Silly prop (optional holdable/wearable — secondary to creature type shape): ${sillyProp || "(blank)"}
 - High school: ${highSchool || "not given"}
 - ${egg}
@@ -147,6 +149,7 @@ Return ONLY valid minified JSON with this exact shape (numbers 1-100 inclusive):
   "oneLiner": string,
   "personalityParagraph": string,
   "imagePrompt": string,
+  "fearImagePrompt": string,
   "empathy": number,
   "society": number,
   "informationProcessing": number,
@@ -159,7 +162,8 @@ Where:
 - informationProcessing: 1 = concrete/sensing flavor, 100 = imaginative/intuition flavor
 - decisionMaking: 1 = analytical head-first, 100 = heart-first/harmony
 - approach: 1 = structured/planned, 100 = spontaneous/go-with-flow
-- imagePrompt: one English paragraph for a text-to-image model. MUST (1) lead with and emphasize creature type as the main visual identity — full body, clear silhouette; (2) describe expression, pose, and micro-demeanour from the other fields (not generic face); (3) set the scene with a background clearly inspired by place of birth; (4) if favourite food was given above (not "not given" / not blank), explicitly include a small same-style illustration of that food positioned in the bottom right corner of the frame; if no favourite food, skip the inset; (5) children's-book illustration energy, readable shapes, gentle colours; NO text in image, NO logos, NOT Dr Seuss, NOT any existing character`;
+- imagePrompt: one English paragraph for a text-to-image model. MUST (1) lead with and emphasize creature type as the main visual identity — full body, clear silhouette; (2) describe expression, pose, and micro-demeanour from the other fields (not generic face); (3) set the scene with a background clearly inspired by place of birth; (4) if favourite food was given above (not "not given" / not blank), explicitly include a small same-style illustration of that food positioned in the bottom right corner of the frame; if no favourite food, skip the inset; (5) children's-book illustration energy, readable shapes, gentle colours; NO text in image, NO logos, NOT Dr Seuss, NOT any existing character
+- fearImagePrompt: one English paragraph for a SEPARATE small image. If "Biggest fear" was given above (not "not given"), this paragraph MUST visualize THAT fear in picture-book style — you may add playful visual detail, lighting, and setting, but keep the same core idea as the user's words. If no biggest fear was given, invent one consistent with personality. The feared object/situation only (NOT the creature in frame). Mild "uh-oh" energy — no gore, no realistic horror, no screaming faces; NO text, NO logos`;
 
 }
 
@@ -412,7 +416,7 @@ app.post("/api/generate", async (req, res) => {
       approach: clampMeter(parsed.approach),
     };
 
-    return res.json({
+    const out = {
       displayName,
       oneLiner,
       personalityParagraph,
@@ -420,7 +424,102 @@ app.post("/api/generate", async (req, res) => {
       imageMime,
       meters,
       fixedMeters: { energy: 100, hunger: 100, cleanliness: 100, health: 100 },
-    });
+    };
+
+    if (fbFood) {
+      const foodPrompt = `Single appetizing illustration of ${fbFood}, children's storybook art style, warm and readable shapes, simple soft background, food centered in frame, no characters, no faces, no creatures, no text, no logos`.slice(
+        0,
+        1500
+      );
+      try {
+        let foodBuffer;
+        let foodMime = "image/png";
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            const fblob = await hfClient.textToImage({
+              model: HF_IMAGE_MODEL,
+              inputs: foodPrompt,
+              parameters: {
+                width: 384,
+                height: 384,
+                negative_prompt:
+                  "text, watermark, signature, logo, character, face, body, blurry, deformed",
+              },
+            });
+            const ab = await fblob.arrayBuffer();
+            foodBuffer = Buffer.from(ab);
+            foodMime =
+              fblob.type && fblob.type.startsWith("image/")
+                ? fblob.type
+                : "image/png";
+            break;
+          } catch (e) {
+            if (attempt < 1)
+              await new Promise((r) => setTimeout(r, 6000));
+            else throw e;
+          }
+        }
+        out.foodImageBase64 = foodBuffer.toString("base64");
+        out.foodImageMime = foodMime;
+      } catch (foodErr) {
+        console.warn("[HF food thumb]", foodErr?.message || foodErr);
+      }
+    }
+
+    const userBiggestFear = sanitizeUserBits(req.body?.biggestFear, 500).trim();
+    const fearCore = sanitizeUserBits(parsed.fearImagePrompt, 1200).trim();
+    const fearParts = [];
+    if (userBiggestFear) {
+      fearParts.push(
+        `Depict this creature's biggest fear (player-specified): "${userBiggestFear}".`
+      );
+    }
+    if (fearCore) {
+      fearParts.push(`Art direction from character writer: ${fearCore}`);
+    }
+    const fearPrompt = (
+      fearParts.join(" ") ||
+      `A silly mildly scary thing a ${fbType || "whimsical creature"} might fear — shadows, storm cloud, or stern paperwork — picture-book style`
+    ).slice(0, 1500);
+    const fearT2I = `Children's storybook illustration: ${fearPrompt} Single clear subject or scene, simple soft background, centered, whimsical not horrific, no creature protagonist, no human faces, no text, no logos`.slice(
+      0,
+      1500
+    );
+    try {
+      let fearBuffer;
+      let fearMime = "image/png";
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const fblob = await hfClient.textToImage({
+            model: HF_IMAGE_MODEL,
+            inputs: fearT2I,
+            parameters: {
+              width: 384,
+              height: 384,
+              negative_prompt:
+                "text, watermark, logo, gore, photorealistic horror, screaming, gory, sharp teeth close-up, deformed",
+            },
+          });
+          const ab = await fblob.arrayBuffer();
+          fearBuffer = Buffer.from(ab);
+          fearMime =
+            fblob.type && fblob.type.startsWith("image/")
+              ? fblob.type
+              : "image/png";
+          break;
+        } catch (e) {
+          if (attempt < 1)
+            await new Promise((r) => setTimeout(r, 6000));
+          else throw e;
+        }
+      }
+      out.fearImageBase64 = fearBuffer.toString("base64");
+      out.fearImageMime = fearMime;
+    } catch (fearErr) {
+      console.warn("[HF fear thumb]", fearErr?.message || fearErr);
+    }
+
+    return res.json(out);
   } catch (err) {
     console.error(err);
     return res.status(500).json({
