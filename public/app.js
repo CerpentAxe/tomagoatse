@@ -233,18 +233,136 @@ function setCareButtonsDisabled(disabled) {
 }
 
 function syncCareDragThumbnails() {
-  if (foodDragImg && foodDragWrap && !foodDragWrap.hidden) {
-    const hasSrc = foodDragImg.getAttribute("src");
-    foodDragImg.draggable = Boolean(hasSrc && careSession && !btnFeed.disabled);
+  if (foodDragImg && foodDragWrap) {
+    const hasSrc = Boolean(foodDragImg.getAttribute("src"));
+    const interactive =
+      !foodDragWrap.hidden &&
+      hasSrc &&
+      careSession &&
+      !btnFeed.disabled;
+    foodDragImg.draggable = interactive;
+    foodDragImg.tabIndex = interactive ? 0 : -1;
+    if (interactive) foodDragImg.setAttribute("role", "button");
+    else foodDragImg.removeAttribute("role");
   } else if (foodDragImg) {
     foodDragImg.draggable = false;
+    foodDragImg.tabIndex = -1;
+    foodDragImg.removeAttribute("role");
   }
-  if (fearDragImg && fearDragWrap && !fearDragWrap.hidden) {
-    const hasSrc = fearDragImg.getAttribute("src");
-    fearDragImg.draggable = Boolean(hasSrc && careSession && !btnDiscipline.disabled);
+  if (fearDragImg && fearDragWrap) {
+    const hasSrc = Boolean(fearDragImg.getAttribute("src"));
+    const interactive =
+      !fearDragWrap.hidden &&
+      hasSrc &&
+      careSession &&
+      !btnDiscipline.disabled;
+    fearDragImg.draggable = interactive;
+    fearDragImg.tabIndex = interactive ? 0 : -1;
+    if (interactive) fearDragImg.setAttribute("role", "button");
+    else fearDragImg.removeAttribute("role");
   } else if (fearDragImg) {
     fearDragImg.draggable = false;
+    fearDragImg.tabIndex = -1;
+    fearDragImg.removeAttribute("role");
   }
+}
+
+function canTriggerFoodThumb() {
+  return (
+    careSession &&
+    foodDragWrap &&
+    !foodDragWrap.hidden &&
+    Boolean(foodDragImg?.getAttribute("src")) &&
+    !btnFeed.disabled
+  );
+}
+
+function canTriggerFearThumb() {
+  return (
+    careSession &&
+    fearDragWrap &&
+    !fearDragWrap.hidden &&
+    Boolean(fearDragImg?.getAttribute("src")) &&
+    !btnDiscipline.disabled
+  );
+}
+
+const CARE_WIND_REDUCED =
+  typeof window !== "undefined" &&
+  Boolean(
+    window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches
+  );
+
+function flashThumbTapGlow(sourceImg, kind) {
+  if (!sourceImg) return;
+  const feedCls = "thumb-tap-glow--feed";
+  const fearCls = "thumb-tap-glow--discipline";
+  sourceImg.classList.remove("thumb-tap-glow", feedCls, fearCls);
+  void sourceImg.offsetWidth;
+  sourceImg.classList.add(
+    "thumb-tap-glow",
+    kind === "feed" ? feedCls : fearCls
+  );
+  const clear = () => {
+    sourceImg.classList.remove("thumb-tap-glow", feedCls, fearCls);
+  };
+  sourceImg.addEventListener("animationend", clear, { once: true });
+  window.setTimeout(clear, 700);
+}
+
+function playThumbToPortraitWind(sourceImg, kind) {
+  if (CARE_WIND_REDUCED || !sourceImg || !resultImage) return;
+  const figure = sourceImg.closest("figure.portrait");
+  if (!figure) return;
+  let layer = figure.querySelector(".care-wind-layer");
+  if (!layer) {
+    layer = document.createElement("div");
+    layer.className = "care-wind-layer";
+    layer.setAttribute("aria-hidden", "true");
+    figure.appendChild(layer);
+  }
+  const fr = figure.getBoundingClientRect();
+  const sr = sourceImg.getBoundingClientRect();
+  const tr = resultImage.getBoundingClientRect();
+  const x0 = sr.left + sr.width / 2 - fr.left;
+  const y0 = sr.top + sr.height / 2 - fr.top;
+  const x1 = tr.left + tr.width / 2 - fr.left;
+  const y1 = tr.top + tr.height / 2 - fr.top;
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+  const dist = Math.max(24, Math.hypot(dx, dy));
+  const pathAngle = (Math.atan2(dy, dx) * 180) / Math.PI;
+  const perp = pathAngle + 90;
+  const perpRad = (perp * Math.PI) / 180;
+  const n = 7;
+  layer.replaceChildren();
+  for (let i = 0; i < n; i++) {
+    const spread = (i - (n - 1) / 2) * 10;
+    const ox = Math.cos(perpRad) * spread;
+    const oy = Math.sin(perpRad) * spread;
+    const el = document.createElement("span");
+    el.className = `care-wind-streak care-wind-streak--${kind}`;
+    el.style.left = `${x0 + ox}px`;
+    el.style.top = `${y0 + oy}px`;
+    el.style.setProperty("--wind-deg", `${pathAngle}deg`);
+    el.style.setProperty("--wind-dist", `${dist}px`);
+    el.style.animationDelay = `${i * 42}ms`;
+    layer.appendChild(el);
+  }
+  requestAnimationFrame(() => {
+    layer.querySelectorAll(".care-wind-streak").forEach((el) => {
+      el.classList.add("care-wind-streak--active");
+    });
+  });
+  window.setTimeout(() => {
+    layer.replaceChildren();
+  }, 950);
+}
+
+function playThumbCareSendEffect(sourceImg, action) {
+  const kind = action === "feed" ? "feed" : "discipline";
+  flashThumbTapGlow(sourceImg, kind);
+  playThumbToPortraitWind(sourceImg, kind);
 }
 
 function syncFeedButtonLabel() {
@@ -343,6 +461,19 @@ if (foodDragImg) {
     e.dataTransfer.setData("text/plain", FEED_DRAG_TYPE);
     e.dataTransfer.effectAllowed = "copy";
   });
+  foodDragImg.addEventListener("click", (e) => {
+    if (!canTriggerFoodThumb()) return;
+    e.preventDefault();
+    playThumbCareSendEffect(foodDragImg, "feed");
+    handleCareAction("feed");
+  });
+  foodDragImg.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    if (!canTriggerFoodThumb()) return;
+    e.preventDefault();
+    playThumbCareSendEffect(foodDragImg, "feed");
+    handleCareAction("feed");
+  });
 }
 
 if (fearDragImg) {
@@ -353,6 +484,19 @@ if (fearDragImg) {
     }
     e.dataTransfer.setData("text/plain", DISCIPLINE_DRAG_TYPE);
     e.dataTransfer.effectAllowed = "copy";
+  });
+  fearDragImg.addEventListener("click", (e) => {
+    if (!canTriggerFearThumb()) return;
+    e.preventDefault();
+    playThumbCareSendEffect(fearDragImg, "discipline");
+    handleCareAction("discipline");
+  });
+  fearDragImg.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    if (!canTriggerFearThumb()) return;
+    e.preventDefault();
+    playThumbCareSendEffect(fearDragImg, "discipline");
+    handleCareAction("discipline");
   });
 }
 
@@ -495,16 +639,16 @@ function goToCreateForm(options = {}) {
   if (foodDragImg) {
     foodDragImg.removeAttribute("src");
     foodDragImg.alt = "";
-    foodDragImg.draggable = false;
   }
   if (fearDragImg) {
     fearDragImg.removeAttribute("src");
     fearDragImg.alt = "";
-    fearDragImg.draggable = false;
   }
   portraitDropZone?.classList.remove("portrait-drag-over");
+  document.querySelector("figure.portrait .care-wind-layer")?.replaceChildren();
   if (options.resetForm) form.reset();
   careSession = null;
+  syncCareDragThumbnails();
   showScreen("form");
 }
 

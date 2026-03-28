@@ -555,11 +555,13 @@ select:focus {
 }
 
 .portrait {
+  position: relative;
   margin: 0;
   padding: 0.75rem;
   background: linear-gradient(180deg, var(--accent-soft), #fff);
   border-radius: var(--radius);
   border: 2px dashed rgba(232, 72, 106, 0.35);
+  overflow: visible;
 }
 
 .portrait-drop-zone {
@@ -641,6 +643,119 @@ select:focus {
 .food-drag-img[draggable="false"] {
   cursor: not-allowed;
   opacity: 0.55;
+}
+
+@keyframes thumbTapGlowFeed {
+  0% {
+    box-shadow: 0 4px 14px var(--shadow);
+  }
+  45% {
+    box-shadow:
+      0 0 0 3px rgba(232, 72, 106, 0.5),
+      0 0 28px rgba(125, 211, 192, 0.65),
+      0 0 36px rgba(232, 72, 106, 0.35),
+      0 4px 14px var(--shadow);
+  }
+  100% {
+    box-shadow: 0 4px 14px var(--shadow);
+  }
+}
+
+@keyframes thumbTapGlowDiscipline {
+  0% {
+    box-shadow: 0 4px 14px var(--shadow);
+  }
+  45% {
+    box-shadow:
+      0 0 0 3px rgba(90, 101, 120, 0.45),
+      0 0 26px rgba(142, 197, 255, 0.7),
+      0 0 34px rgba(90, 101, 120, 0.3),
+      0 4px 14px var(--shadow);
+  }
+  100% {
+    box-shadow: 0 4px 14px var(--shadow);
+  }
+}
+
+.food-drag-img.thumb-tap-glow--feed {
+  animation: thumbTapGlowFeed 0.58s ease-out;
+}
+
+.food-drag-img.thumb-tap-glow--discipline {
+  animation: thumbTapGlowDiscipline 0.58s ease-out;
+}
+
+.care-wind-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.care-wind-streak {
+  position: absolute;
+  width: 36px;
+  height: 6px;
+  margin-top: -3px;
+  margin-left: 0;
+  border-radius: 4px;
+  transform-origin: left center;
+  opacity: 0;
+  filter: blur(0.35px);
+  will-change: transform, opacity;
+}
+
+.care-wind-streak--feed {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(125, 211, 192, 0.95) 35%,
+    rgba(232, 72, 106, 0.75) 100%
+  );
+  box-shadow: 0 0 10px rgba(125, 211, 192, 0.5);
+}
+
+.care-wind-streak--discipline {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(142, 197, 255, 0.95) 40%,
+    rgba(90, 101, 120, 0.65) 100%
+  );
+  box-shadow: 0 0 10px rgba(142, 197, 255, 0.45);
+}
+
+@keyframes careWindStreakFly {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--wind-deg, 0deg)) translateX(0) scaleX(0.35);
+  }
+  18% {
+    opacity: 0.92;
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--wind-deg, 0deg)) translateX(var(--wind-dist, 120px))
+      scaleX(1.05);
+  }
+}
+
+.care-wind-streak--active {
+  animation: careWindStreakFly 0.72s cubic-bezier(0.22, 0.82, 0.28, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .food-drag-img.thumb-tap-glow--feed,
+  .food-drag-img.thumb-tap-glow--discipline {
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+  }
+
+  .care-wind-streak--active {
+    animation: none;
+    opacity: 0 !important;
+  }
 }
 
 .caption {
