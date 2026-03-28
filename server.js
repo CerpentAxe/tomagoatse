@@ -121,6 +121,20 @@ function buildCharacterPrompt(body) {
       ? `Easter egg: they guessed the irrelevant high school (${EASTER_EGG_HIGH_SCHOOL}). Add one subtle, kind wink in the oneLiner only.`
       : "High school is irrelevant — do not congratulate or reference guessing games unless the easter egg above applies.";
 
+  const friendOf = sanitizeUserBits(body.friendOfDisplayName, 120).trim();
+  const friendModeBlock =
+    friendOf.length > 0
+      ? `
+
+FRIEND GENERATION MODE — the player asked for a new buddy for "${friendOf}":
+- displayName in your JSON MUST be a fresh, original name for this NEW individual — NOT "${friendOf}", not a mere spelling variant, not a placeholder like "Friend" or "Unnamed".
+- Creature type is LOCKED to the same species as this line (same body plan and identity): "${creatureType || "abstract whimsy"}". Your imagePrompt MUST lead with this same creature type. Visually distinguish them from "${friendOf}" (different face, markings, palette accents, pose) — a peer of the same species, not a clone.
+- Favourite food is LOCKED to: "${favouriteFood || "not given"}" — do not substitute another food; corner inset must show this food when it is not "not given".
+- Biggest fear is LOCKED to the player's concept: "${biggestFear || "not given"}" — keep the same core fear in personality and fearImagePrompt (wording may vary slightly but not the idea).
+- For blank or vague inputs below, invent new whimsical specifics (colours, song, birthplace, Myers-Briggs, silly prop, pronoun vibe) so this character feels like a distinct person.
+- You may lightly nod to friendship with "${friendOf}" in prose if natural; do not let the whole bio be only about them.`
+      : "";
+
   return `You are a creative writer for wholly ORIGINAL whimsical creatures in the spirit of playful rhyming picture books and pocket virtual pets — NOT Dr. Seuss, NOT Tamagotchi, no trademarked names, no distinctive character copies, no recognizable style imitation of any single work. Invent fresh nonsense words sparingly.
 
 IMAGE VS TEXT — priorities (critical):
@@ -141,7 +155,7 @@ User inputs:
 - Biggest fear (TEXT: work this into oneLiner and personalityParagraph — habits, avoidance, comic dread; do not trivialize cruelly): ${biggestFear || "not given — invent a mild whimsical fear consistent with the rest"}
 - Silly prop (optional holdable/wearable — secondary to creature type shape): ${sillyProp || "(blank)"}
 - High school: ${highSchool || "not given"}
-- ${egg}
+- ${egg}${friendModeBlock}
 
 Return ONLY valid minified JSON with this exact shape (numbers 1-100 inclusive):
 {

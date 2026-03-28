@@ -22,9 +22,11 @@ const btnFeed = document.getElementById("btn-feed");
 const btnDiscipline = document.getElementById("btn-discipline");
 const btnEncourage = document.getElementById("btn-encourage");
 const btnNewAbomination = document.getElementById("btn-new-abomination");
+const btnFindFriend = document.getElementById("btn-find-friend");
 const careDialog = document.getElementById("care-dialog");
 const careDialogFirst = document.getElementById("care-dialog-first");
 const careDialogAction = document.getElementById("care-dialog-action");
+const careDialogActionSub = document.getElementById("care-dialog-action-sub");
 const careDialogMeterNote = document.getElementById("care-dialog-meter-note");
 const careDialogClose = document.getElementById("care-dialog-close");
 const lightningOverlay = document.getElementById("lightning-overlay");
@@ -33,6 +35,7 @@ const captionIntroWrap = document.querySelector(".caption-intro-wrap");
 const captionIntroText = document.getElementById("caption-intro-text");
 
 const WORKING_MSG = "If you see this, it is working";
+const FRIEND_WORKING_MSG = "Finding a kindred spirit…";
 const LIGHTNING_STEP_MS = 100;
 /** One strike = black → white → black → white */
 const LIGHTNING_STRIKES = 4;
@@ -129,10 +132,56 @@ const FIXED_METERS = [
 ];
 
 const CARE_COPY = {
-  feed: "ooh baby, I like that!",
+  feed: "oof baby, I like that!",
   discipline: "Fuck off you prick",
   encourage: "I love you, big hearts",
 };
+
+const FEED_ACTION_FOLLOWUPS = [
+  "I have seen the face of happiness… and it was seasoned.",
+  "I'd like to thank my mouth for believing in me.",
+  "If loving this food is wrong, I don't want to be right.",
+  "That meal just solved problems I didn't even know I had.",
+  "I need a moment. And possibly a nap. And therapy for how good that was.",
+  "I regret nothing. Except not ordering more.",
+  "This is the peak of my day. It's all downhill from here.",
+  "Legally, I think that counted as self-care.",
+  "I am emotionally attached to what I just ate.",
+  "Is it too soon to say that changed me as a person?",
+  "My ancestors are smiling upon me right now.",
+  "I'm not full—I'm fulfilled.",
+  "I will be thinking about that meal at random times for the next three business days.",
+  "That food understood me.",
+  "Cancel my plans. I've achieved everything I came to do.",
+  "I would fight someone for that recipe.",
+  "If someone needs me, I'll be reminiscing.",
+  "That was so good it deserves a slow clap.",
+  "I didn't eat that. I experienced it.",
+  "I am now accepting compliments on my excellent food choices.",
+];
+
+const DISCIPLINE_ACTION_FOLLOWUPS = [
+  "My spirit just exited and re-entered.",
+  "Well. That aged me.",
+  "My ancestors flinched.",
+  "I just saw my entire life flash, and it was mostly awkward.",
+  "Apologies, my soul needed a reboot.",
+  "I did not consent to that heart activity.",
+  "My internal organs are rearranging themselves as we speak.",
+  "That noise took years off my remaining lifespan.",
+  "I momentarily forgot who I was and what year it is.",
+  "I would like to file a formal complaint with reality.",
+  "My fight-or-flight chose scream and ascend.",
+  "Ah yes. Terror. My old nemesis.",
+  "I just achieved a pitch only dogs can hear.",
+  "My soul left a forwarding address.",
+  "I wasn't scared—I was surprised dramatically.",
+  "My heart is now doing parkour.",
+  "I briefly became mist.",
+  "That startled the thoughts right out of my head.",
+  "I have never been alive before this moment.",
+  "Congratulations, you have startled my final brain cell.",
+];
 
 const SPECIAL_SELF_FEED_LINES = [
   "Everybody loves their own brand",
@@ -141,8 +190,128 @@ const SPECIAL_SELF_FEED_LINES = [
   "It puts the lotion on the skin, or else it gets the hose again",
 ];
 
-/** @type {{ displayName: string, creatureType: string, favouriteFood: string, meters: Record<string, number>, fixedMeters: Record<string, number>, careUsedOnce: boolean } | null} */
+/** @type {{ displayName: string, creatureType: string, favouriteFood: string, biggestFear: string, meters: Record<string, number>, fixedMeters: Record<string, number>, careUsedOnce: boolean } | null} */
 let careSession = null;
+
+function syncFindFriendButton() {
+  if (!btnFindFriend) return;
+  if (!careSession) {
+    btnFindFriend.disabled = true;
+    btnFindFriend.textContent = "Find them a friend";
+    btnFindFriend.removeAttribute("title");
+    return;
+  }
+  const rawName = careSession.displayName.trim() || "them";
+  const labelName =
+    rawName.length > 28 ? `${rawName.slice(0, 26)}…` : rawName;
+  btnFindFriend.textContent = `Find ${labelName} a friend`;
+  btnFindFriend.disabled = !careSession.creatureType?.trim();
+  btnFindFriend.title = careSession.creatureType?.trim()
+    ? `Same species (${careSession.creatureType.trim()}), same favourite food and fear — new face and story`
+    : "";
+}
+
+async function runCharacterGenerate(body, options = {}) {
+  const loadingMessage = options.loadingMessage ?? WORKING_MSG;
+  loadingText.textContent = loadingMessage;
+  showScreen("loading");
+
+  try {
+    const res = await fetch("/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      errorDetail.textContent = data.message || data.error || res.statusText;
+      showScreen("error");
+      return;
+    }
+
+    const displayName = data.displayName || body.name || "Your hatchling";
+    resultName.textContent = displayName;
+    resultTagline.textContent = data.oneLiner || "";
+    resultCaption.textContent = data.personalityParagraph || "";
+
+    const mime = data.imageMime || "image/png";
+    resultImage.src = `data:${mime};base64,${data.imageBase64}`;
+    resultImage.alt = `Portrait of ${displayName}`;
+
+    const hasFoodThumb = Boolean(data.foodImageBase64);
+    const hasFearThumb = Boolean(data.fearImageBase64);
+    if (dragThumbsRow) {
+      dragThumbsRow.hidden = !hasFoodThumb && !hasFearThumb;
+    }
+
+    if (hasFoodThumb && foodDragWrap && foodDragImg) {
+      foodDragWrap.hidden = false;
+      const fm = data.foodImageMime || "image/png";
+      foodDragImg.src = `data:${fm};base64,${data.foodImageBase64}`;
+      foodDragImg.alt = `Draggable ${String(body.favouriteFood || "food").slice(0, 80)}`;
+    } else if (foodDragWrap && foodDragImg) {
+      foodDragWrap.hidden = true;
+      foodDragImg.removeAttribute("src");
+      foodDragImg.alt = "";
+    }
+
+    if (hasFearThumb && fearDragWrap && fearDragImg) {
+      fearDragWrap.hidden = false;
+      const fm = data.fearImageMime || "image/png";
+      fearDragImg.src = `data:${fm};base64,${data.fearImageBase64}`;
+      const bf = String(body.biggestFear || "").trim();
+      fearDragImg.alt = bf
+        ? `Their fear (“${bf.slice(0, 70)}${bf.length > 70 ? "…" : ""}”) — drag to discipline`
+        : `What ${displayName} is scared of — drag to discipline`;
+    } else if (fearDragWrap && fearDragImg) {
+      fearDragWrap.hidden = true;
+      fearDragImg.removeAttribute("src");
+      fearDragImg.alt = "";
+    }
+
+    const m = data.meters || {};
+    const f = data.fixedMeters || {
+      energy: 100,
+      hunger: 100,
+      cleanliness: 100,
+      health: 100,
+    };
+    if (f.health === undefined) f.health = 100;
+
+    careSession = {
+      displayName,
+      creatureType: String(body.creatureType || ""),
+      favouriteFood: String(body.favouriteFood || ""),
+      biggestFear: String(body.biggestFear || ""),
+      meters: {
+        empathy: m.empathy,
+        society: m.society,
+        informationProcessing: m.informationProcessing,
+        decisionMaking: m.decisionMaking,
+        approach: m.approach,
+      },
+      fixedMeters: { ...f },
+      careUsedOnce: false,
+    };
+
+    renderMetersFromSession();
+    syncFeedButtonLabel();
+    setCareButtonsDisabled(false);
+    syncCareDragThumbnails();
+    syncFindFriendButton();
+
+    await runLightningFlash();
+    screenLoading.hidden = true;
+    screenLoading.classList.add("screen-hidden");
+    await showCaptionIntroPopup(resultCaption.textContent);
+    showScreen("result");
+  } catch (err) {
+    console.error(err);
+    errorDetail.textContent = err.message || "Network hiccup";
+    showScreen("error");
+  }
+}
 
 function showScreen(which) {
   const screens = [
@@ -397,6 +566,22 @@ async function handleCareAction(action) {
       ];
   }
   careDialogAction.textContent = actionLine;
+  if (action === "feed") {
+    careDialogActionSub.textContent =
+      FEED_ACTION_FOLLOWUPS[
+        Math.floor(Math.random() * FEED_ACTION_FOLLOWUPS.length)
+      ];
+    careDialogActionSub.hidden = false;
+  } else if (action === "discipline") {
+    careDialogActionSub.textContent =
+      DISCIPLINE_ACTION_FOLLOWUPS[
+        Math.floor(Math.random() * DISCIPLINE_ACTION_FOLLOWUPS.length)
+      ];
+    careDialogActionSub.hidden = false;
+  } else {
+    careDialogActionSub.textContent = "";
+    careDialogActionSub.hidden = true;
+  }
   if (isFirst) {
     const ct = careSession.creatureType.trim() || "creature";
     careDialogFirst.textContent =
@@ -528,106 +713,9 @@ if (portraitDropZone) {
 
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
-  const fd = new FormData(form);
-  const body = Object.fromEntries(fd.entries());
-
-  loadingText.textContent = WORKING_MSG;
-  showScreen("loading");
-
-  try {
-    const res = await fetch("/api/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const data = await res.json().catch(() => ({}));
-
-    if (!res.ok) {
-      errorDetail.textContent = data.message || data.error || res.statusText;
-      showScreen("error");
-      return;
-    }
-
-    const displayName = data.displayName || body.name || "Your hatchling";
-    resultName.textContent = displayName;
-    resultTagline.textContent = data.oneLiner || "";
-    resultCaption.textContent = data.personalityParagraph || "";
-
-    const mime = data.imageMime || "image/png";
-    resultImage.src = `data:${mime};base64,${data.imageBase64}`;
-    resultImage.alt = `Portrait of ${displayName}`;
-
-    const hasFoodThumb = Boolean(data.foodImageBase64);
-    const hasFearThumb = Boolean(data.fearImageBase64);
-    if (dragThumbsRow) {
-      dragThumbsRow.hidden = !hasFoodThumb && !hasFearThumb;
-    }
-
-    if (hasFoodThumb && foodDragWrap && foodDragImg) {
-      foodDragWrap.hidden = false;
-      const fm = data.foodImageMime || "image/png";
-      foodDragImg.src = `data:${fm};base64,${data.foodImageBase64}`;
-      foodDragImg.alt = `Draggable ${String(body.favouriteFood || "food").slice(0, 80)}`;
-    } else if (foodDragWrap && foodDragImg) {
-      foodDragWrap.hidden = true;
-      foodDragImg.removeAttribute("src");
-      foodDragImg.alt = "";
-    }
-
-    if (hasFearThumb && fearDragWrap && fearDragImg) {
-      fearDragWrap.hidden = false;
-      const fm = data.fearImageMime || "image/png";
-      fearDragImg.src = `data:${fm};base64,${data.fearImageBase64}`;
-      const bf = String(body.biggestFear || "").trim();
-      fearDragImg.alt = bf
-        ? `Their fear (“${bf.slice(0, 70)}${bf.length > 70 ? "…" : ""}”) — drag to discipline`
-        : `What ${displayName} is scared of — drag to discipline`;
-    } else if (fearDragWrap && fearDragImg) {
-      fearDragWrap.hidden = true;
-      fearDragImg.removeAttribute("src");
-      fearDragImg.alt = "";
-    }
-
-    const m = data.meters || {};
-    const f = data.fixedMeters || {
-      energy: 100,
-      hunger: 100,
-      cleanliness: 100,
-      health: 100,
-    };
-    if (f.health === undefined) f.health = 100;
-
-    careSession = {
-      displayName,
-      creatureType: String(body.creatureType || ""),
-      favouriteFood: String(body.favouriteFood || ""),
-      meters: {
-        empathy: m.empathy,
-        society: m.society,
-        informationProcessing: m.informationProcessing,
-        decisionMaking: m.decisionMaking,
-        approach: m.approach,
-      },
-      fixedMeters: { ...f },
-      careUsedOnce: false,
-    };
-
-    renderMetersFromSession();
-    syncFeedButtonLabel();
-    setCareButtonsDisabled(false);
-    syncCareDragThumbnails();
-
-    await runLightningFlash();
-    // Hide loading so the caption dialog is not stacked over the spinner
-    screenLoading.hidden = true;
-    screenLoading.classList.add("screen-hidden");
-    await showCaptionIntroPopup(resultCaption.textContent);
-    showScreen("result");
-  } catch (err) {
-    console.error(err);
-    errorDetail.textContent = err.message || "Network hiccup";
-    showScreen("error");
-  }
+  const body = Object.fromEntries(new FormData(form).entries());
+  delete body.friendOfDisplayName;
+  await runCharacterGenerate(body, { loadingMessage: WORKING_MSG });
 });
 
 function goToCreateForm(options = {}) {
@@ -649,6 +737,7 @@ function goToCreateForm(options = {}) {
   if (options.resetForm) form.reset();
   careSession = null;
   syncCareDragThumbnails();
+  syncFindFriendButton();
   showScreen("form");
 }
 
@@ -660,6 +749,27 @@ btnRetry.addEventListener("click", () => {
 btnNewAbomination.addEventListener("click", () =>
   goToCreateForm({ resetForm: true })
 );
+
+if (btnFindFriend) {
+  btnFindFriend.addEventListener("click", async () => {
+    if (!careSession?.creatureType?.trim()) return;
+    const body = {
+      name: "",
+      creatureType: careSession.creatureType,
+      favouriteFood: careSession.favouriteFood,
+      biggestFear: careSession.biggestFear,
+      friendOfDisplayName: careSession.displayName,
+      gender: "",
+      colours: "",
+      favouriteSong: "",
+      placeOfBirth: "",
+      myersBriggs: "",
+      sillyProp: "",
+      highSchool: "",
+    };
+    await runCharacterGenerate(body, { loadingMessage: FRIEND_WORKING_MSG });
+  });
+}
 
 btnFeed.addEventListener("click", () => handleCareAction("feed"));
 btnDiscipline.addEventListener("click", () =>
@@ -674,4 +784,8 @@ careDialogClose.addEventListener("click", () => careDialog.close());
 careDialog.addEventListener("close", () => {
   careDialogMeterNote.textContent = "";
   careDialogMeterNote.hidden = true;
+  if (careDialogActionSub) {
+    careDialogActionSub.textContent = "";
+    careDialogActionSub.hidden = true;
+  }
 });

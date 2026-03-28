@@ -110,7 +110,7 @@
             <input name="highSchool" type="text" placeholder="Probably doesn’t matter" />
           </label>
           <div class="actions field-span2">
-            <button type="submit" class="btn-primary">Bear my child</button>
+            <button type="submit" class="btn-primary">Bear your child</button>
           </div>
         </form>
       </section>
@@ -215,6 +215,14 @@
             <button type="button" class="btn-new-abomination" id="btn-new-abomination">
               Create new abomination
             </button>
+            <button
+              type="button"
+              class="btn-find-friend"
+              id="btn-find-friend"
+              disabled
+            >
+              Find them a friend
+            </button>
           </div>
         </div>
       </section>
@@ -241,6 +249,11 @@
       <div class="care-dialog-panel">
         <p id="care-dialog-first" class="care-dialog-line care-dialog-first"></p>
         <p id="care-dialog-action" class="care-dialog-line care-dialog-action"></p>
+        <p
+          id="care-dialog-action-sub"
+          class="care-dialog-line care-dialog-action-sub"
+          hidden
+        ></p>
         <p id="care-dialog-meter-note" class="care-dialog-note" hidden></p>
         <button type="button" class="btn-primary care-dialog-ok" id="care-dialog-close">
           OK
