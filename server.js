@@ -19,23 +19,35 @@ const PORTAL_CONTINUE_HOURS = Number.isFinite(Number(process.env.PORTAL_CONTINUE
 
 const DATABASE_URL = process.env.DATABASE_URL;
 
-/** Supabase (and most cloud Postgres) require TLS. Local dev can set DATABASE_SSL=false. */
+/**
+ * Supabase (and most cloud Postgres) require TLS. Local dev can set DATABASE_SSL=false.
+ * Node + Supabase on Render often throws SELF_SIGNED_CERT_IN_CHAIN if rejectUnauthorized is true;
+ * connection is still encrypted. Default for *.supabase.co / pooler.supabase.com is
+ * rejectUnauthorized: false. Override with DATABASE_SSL_REJECT_UNAUTHORIZED=true|false.
+ */
 function buildPgPoolConfig() {
   if (!DATABASE_URL) return null;
   const url = DATABASE_URL;
   const sslOff =
     process.env.DATABASE_SSL === "false" || process.env.DATABASE_SSL === "0";
+  const isSupabase = /supabase\.co|pooler\.supabase\.com/i.test(url);
   const sslOn =
     process.env.DATABASE_SSL === "true" ||
     process.env.DATABASE_SSL === "1" ||
-    /supabase\.co|pooler\.supabase\.com|neon\.tech|render\.com/i.test(url);
+    isSupabase ||
+    /neon\.tech|render\.com/i.test(url);
   if (sslOff) {
     return { connectionString: url };
   }
   if (sslOn) {
+    const e = process.env.DATABASE_SSL_REJECT_UNAUTHORIZED;
+    let rejectUnauthorized;
+    if (e === "true" || e === "1") rejectUnauthorized = true;
+    else if (e === "false" || e === "0") rejectUnauthorized = false;
+    else rejectUnauthorized = !isSupabase;
     return {
       connectionString: url,
-      ssl: { rejectUnauthorized: true },
+      ssl: { rejectUnauthorized },
     };
   }
   return { connectionString: url };
