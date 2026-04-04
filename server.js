@@ -18,9 +18,30 @@ const PORTAL_CONTINUE_HOURS = Number.isFinite(Number(process.env.PORTAL_CONTINUE
   : 12;
 
 const DATABASE_URL = process.env.DATABASE_URL;
-const pgPool = DATABASE_URL
-  ? new pg.Pool({ connectionString: DATABASE_URL })
-  : null;
+
+/** Supabase (and most cloud Postgres) require TLS. Local dev can set DATABASE_SSL=false. */
+function buildPgPoolConfig() {
+  if (!DATABASE_URL) return null;
+  const url = DATABASE_URL;
+  const sslOff =
+    process.env.DATABASE_SSL === "false" || process.env.DATABASE_SSL === "0";
+  const sslOn =
+    process.env.DATABASE_SSL === "true" ||
+    process.env.DATABASE_SSL === "1" ||
+    /supabase\.co|pooler\.supabase\.com|neon\.tech|render\.com/i.test(url);
+  if (sslOff) {
+    return { connectionString: url };
+  }
+  if (sslOn) {
+    return {
+      connectionString: url,
+      ssl: { rejectUnauthorized: true },
+    };
+  }
+  return { connectionString: url };
+}
+
+const pgPool = DATABASE_URL ? new pg.Pool(buildPgPoolConfig()) : null;
 
 /** Strict UUID string — safe to interpolate in simple queries (poolers that forbid prepared statements). */
 function parseUuidParam(s) {
