@@ -10,6 +10,8 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
+/** Render / Heroku / nginx terminate TLS; without this, req.secure is false and session cookies break. */
+app.set("trust proxy", 1);
 const PORT = process.env.PORT || 3000;
 
 /** Hours after the last simulated reply before “Continue the conversation” (default 12). */
@@ -115,7 +117,8 @@ const sessionMiddleware = session({
     httpOnly: true,
     maxAge: 7 * 24 * 60 * 60 * 1000,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    /** `auto` + trust proxy: Secure cookie only when the client used HTTPS (correct on Render). */
+    secure: process.env.NODE_ENV === "production" ? "auto" : false,
   },
 });
 
