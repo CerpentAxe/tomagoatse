@@ -261,6 +261,14 @@ details.creator-design-acc .creator-design-acc-panel {
   width: 100%;
 }
 
+/* Stacks 3D view + mobile pad; on phone this becomes a fixed bottom dock (see below). */
+.creator-preview-dock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  width: 100%;
+}
+
 .creator-canvas-host {
   width: 100%;
   aspect-ratio: 4 / 3;
@@ -287,6 +295,59 @@ body.creator-mobile-preview .creator-canvas-host {
 
 body.creator-mobile-preview .creator-mobile-preview-ui {
   display: flex;
+}
+
+/* Pin 3D preview (and on-screen move/jump pad) to the bottom while editing — form scrolls above. */
+body.creator-mobile-preview:not(.creator-embed-mode) .creator-preview-dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 35;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0.4rem 0.75rem 0;
+  padding-bottom: max(0.25rem, env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(
+    180deg,
+    rgba(255, 253, 250, 0.97) 0%,
+    var(--card, #fffef9) 40%
+  );
+  border-top: 2px solid rgba(42, 36, 56, 0.12);
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -10px 36px rgba(0, 0, 0, 0.12);
+  height: min(46vh, 400px);
+  max-height: min(46vh, 400px);
+  overflow: hidden;
+}
+
+body.creator-mobile-preview:not(.creator-embed-mode) .creator-preview-dock .creator-canvas-host {
+  flex: 1 1 auto;
+  min-height: 0;
+  aspect-ratio: unset;
+  max-height: none;
+}
+
+body.creator-mobile-preview:not(.creator-embed-mode) .creator-preview-dock .creator-mobile-preview-ui {
+  flex: 0 1 auto;
+  margin-top: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  max-height: 38%;
+  padding-bottom: 0.15rem;
+}
+
+body.creator-mobile-preview:not(.creator-embed-mode) .creator-main:not([hidden]) {
+  padding-bottom: min(46vh, 400px);
+}
+
+body.creator-mobile-preview .creator-spec-panel {
+  max-height: none;
+  overflow-y: visible;
 }
 
 .creator-mobile-orbit-hint {
