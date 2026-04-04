@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Your saved creature — Tomagoatse</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/creator.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="creator-body">
+    <div class="bg-noise" aria-hidden="true"></div>
+    <main class="creator-shell">
+      <div class="my-creature-top">
+        <header class="my-creature-header-block">
+          <div class="my-creature-header-main">
+            <div class="my-creature-portrait-col">
+              <div
+                id="my-hatchery-thumb-wrap"
+                class="my-hatchery-thumb-wrap"
+                hidden
+              >
+                <img
+                  id="my-hatchery-thumb"
+                  class="my-hatchery-thumb"
+                  alt=""
+                  width="88"
+                  height="88"
+                />
+              </div>
+              <div id="my-portrait-controls" class="my-creature-portrait-controls" hidden>
+                <label class="btn-secondary my-creature-portrait-upload">
+                  Upload picture
+                  <input
+                    type="file"
+                    id="my-portrait-file"
+                    class="my-creature-portrait-file-input"
+                    accept="image/*"
+                  />
+                </label>
+                <button type="button" id="my-portrait-reset" class="btn-secondary">
+                  Use hatchery portrait
+                </button>
+                <p id="my-portrait-status" class="my-portrait-status" role="status"></p>
+              </div>
+            </div>
+            <div class="my-creature-header-text">
+              <h1 id="my-title" class="my-creature-title">Your creature</h1>
+              <p id="my-subtitle" class="creator-subtitle my-creature-sub"></p>
+              <p id="my-user-line" class="creator-subtitle my-creature-user"></p>
+            </div>
+          </div>
+        </header>
+        <div class="my-creature-top-right">
+          <div id="my-fr-auto-wrap" class="my-creature-fr-auto-wrap" hidden>
+            <label class="my-creature-fr-auto" for="my-fr-auto-toggle">
+              <span class="my-creature-fr-auto-text">Auto send / receive friend requests</span>
+              <span class="my-creature-fr-switch">
+                <input
+                  type="checkbox"
+                  id="my-fr-auto-toggle"
+                  role="switch"
+                />
+                <span class="my-creature-fr-slider" aria-hidden="true"></span>
+              </span>
+            </label>
+          </div>
+          <div class="my-creature-actions">
+            <a class="creator-back" href="/dashboard.html">← Dashboard</a>
+            <a class="creator-back" href="/settings.html">Settings</a>
+            <a class="creator-back" href="/creator.html">Low-poly creator</a>
+            <button type="button" id="my-logout">Log out</button>
+          </div>
+        </div>
+      </div>
+
+      <p id="my-loading" class="creator-loading card">Loading your saved design…</p>
+
+      <div id="my-empty" class="creator-error card" hidden>
+        <p>
+          No saved creature yet. Use the hatchery or low-poly creator, then save
+          or sign up.
+        </p>
+        <a class="btn-secondary" href="/dashboard.html">Dashboard</a>
+        <a class="btn-secondary" href="/">Hatchery</a>
+      </div>
+
+      <div id="my-error" class="creator-error card" hidden>
+        <p>Could not read your saved data.</p>
+        <a class="btn-secondary" href="/">Home</a>
+      </div>
+
+      <div id="my-content" hidden>
+        <div class="my-creature-layout">
+        <div class="my-creature-layout-main">
+        <p id="my-viewing-banner" class="my-creature-viewing-banner" hidden role="status"></p>
+        <section class="card my-creature-town-section" aria-labelledby="my-town-heading">
+          <h2 id="my-town-heading">Current Town</h2>
+          <p class="my-creature-town-lead">
+            Where this bitch is now. Live in the moment, stay in Grimwhistle where all the homies
+            are chilling and eating ’za, or go somewhere where no one is.
+          </p>
+          <label class="my-creature-town-field">
+            <select
+              id="my-town"
+              aria-labelledby="my-town-heading"
+            ></select>
+          </label>
+          <p id="my-town-status" class="my-town-status" role="status" aria-live="polite"></p>
+        </section>
+
+        <section
+          id="my-iframe-wrap"
+          class="card my-iframe-section my-iframe-hero"
+          style="padding: 0; overflow: hidden"
+          hidden
+        >
+          <div class="my-iframe-section-head">
+            <h2 class="my-iframe-section-title">Your low-poly character</h2>
+            <p class="my-iframe-section-lead my-iframe-hint-desktop">
+              Interactive 3D preview — orbit, zoom, and try the keyboard controls inside the frame.
+            </p>
+            <p class="my-iframe-section-lead my-iframe-hint-mobile" hidden>
+              Interactive 3D preview — drag to orbit, pinch to zoom, and use the on-screen controls inside the frame.
+            </p>
+          </div>
+          <iframe
+            id="creature-iframe"
+            class="my-creature-preview-frame"
+            title="Low-poly character preview"
+            sandbox="allow-scripts allow-same-origin"
+          ></iframe>
+        </section>
+
+        <section class="card my-creature-stats">
+          <h2>Personality &amp; vitals</h2>
+          <p id="my-tagline" class="creator-tagline"></p>
+          <p id="my-caption" class="creator-caption" hidden></p>
+          <div id="my-story" class="creator-story-readonly"></div>
+          <h3 class="meters-title creator-meters-ro-title">
+            Personality meters <small>(from hatchery)</small>
+          </h3>
+          <div id="my-meters-dynamic" class="my-creature-meter-list"></div>
+          <h3 class="meters-title">Vitals</h3>
+          <div id="my-meters-fixed" class="my-creature-meter-list"></div>
+        </section>
+        </div>
+
+        <aside class="my-creature-layout-aside" aria-labelledby="friends-heading">
+          <div class="card my-creature-friends-panel" id="my-friends-panel" hidden>
+            <h2 id="friends-heading" class="my-creature-friends-title">Friends</h2>
+            <p id="friends-loading" class="my-creature-townmates-loading">Loading friends…</p>
+            <ul
+              id="friends-list"
+              class="my-creature-friends-list"
+              aria-label="Your friends"
+              hidden
+            ></ul>
+            <p id="friends-empty" class="my-creature-townmates-empty" hidden>
+              No friends yet — send a request from “In this town”.
+            </p>
+          </div>
+
+          <div class="card my-creature-fr-panel" id="my-fr-panel" hidden>
+            <h2 class="my-creature-fr-title">Friend requests</h2>
+            <div id="fr-incoming" class="my-creature-fr-block" hidden></div>
+            <div id="fr-outgoing" class="my-creature-fr-block" hidden></div>
+          </div>
+
+          <div class="card my-creature-townmates">
+            <h2 id="townmates-heading" class="my-creature-townmates-title">In this town</h2>
+            <p class="my-creature-townmates-lead">
+              Other hatchlings in <strong id="townmates-town-label">—</strong>
+            </p>
+            <p id="townmates-loading" class="my-creature-townmates-loading">Loading neighbors…</p>
+            <ul
+              id="townmates-list"
+              class="my-creature-townmates-list"
+              aria-label="Other creatures in this town"
+              hidden
+            ></ul>
+            <p id="townmates-empty" class="my-creature-townmates-empty" hidden>
+              No one else here yet — you’re the main character.
+            </p>
+          </div>
+        </aside>
+        </div>
+      </div>
+    </main>
+    <script type="module" src="/my-creature.js"></script>
+  </body>
+</html>

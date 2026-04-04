@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Settings — Tomagoatse</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="bg-noise" aria-hidden="true"></div>
+    <main class="shell dashboard-shell settings-shell">
+      <div class="dashboard-header">
+        <header>
+          <p class="hero-kicker">Account</p>
+          <h1>Settings</h1>
+          <p id="settings-user-line" class="hero-sub"></p>
+        </header>
+        <div class="dashboard-header-actions">
+          <a class="btn-secondary" href="/dashboard.html">Dashboard</a>
+          <a class="btn-secondary" href="/">Hatchery</a>
+          <a class="btn-secondary" href="/creator.html">Low-poly creator</a>
+          <button type="button" id="settings-logout" class="dashboard-logout">
+            Log out
+          </button>
+        </div>
+      </div>
+
+      <p id="settings-loading" class="card">Loading settings…</p>
+      <p id="settings-error" class="card dashboard-error" hidden></p>
+
+      <div id="settings-content" hidden>
+        <section class="card settings-section" aria-labelledby="settings-profile-heading">
+          <h2 id="settings-profile-heading" class="settings-section-title">Profile</h2>
+          <dl class="settings-readonly">
+            <div>
+              <dt>Username</dt>
+              <dd id="settings-username">—</dd>
+            </div>
+            <div>
+              <dt>Email</dt>
+              <dd id="settings-email">—</dd>
+            </div>
+          </dl>
+          <form id="settings-profile-form" class="form-grid settings-surname-form">
+            <label class="field field-span2">
+              <span class="label">Surname</span>
+              <input
+                id="settings-surname"
+                name="surname"
+                type="text"
+                maxlength="120"
+                autocomplete="family-name"
+              />
+            </label>
+            <div class="field field-span2 settings-form-actions">
+              <button type="submit" class="btn-primary" id="settings-save-profile">
+                Save surname
+              </button>
+              <span id="settings-profile-status" class="settings-inline-status" role="status"></span>
+            </div>
+          </form>
+        </section>
+
+        <section class="card settings-section" aria-labelledby="settings-characters-heading">
+          <h2 id="settings-characters-heading" class="settings-section-title">
+            Hatchlings &amp; social
+          </h2>
+          <p class="settings-hint">
+            Choose how each character can appear socially, and whether they may automatically send
+            or receive friend requests.
+          </p>
+          <div id="settings-characters-empty" class="settings-empty" hidden>
+            <p>No saved hatchlings yet. Create one in the hatchery and save it to your collection.</p>
+            <a class="btn-primary" href="/">Open hatchery</a>
+          </div>
+          <ul id="settings-characters-list" class="settings-characters-list" hidden></ul>
+        </section>
+      </div>
+    </main>
+    <script type="module" src="/settings.js"></script>
+  </body>
+</html>

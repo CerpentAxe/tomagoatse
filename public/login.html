@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Log in — Tomagoatse</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="bg-noise" aria-hidden="true"></div>
+    <main class="shell auth-shell">
+      <header class="hero auth-hero">
+        <p class="hero-kicker">Welcome back</p>
+        <h1>Log in</h1>
+        <p class="hero-sub">See your saved creature and stats.</p>
+        <p class="auth-hint">
+          Sign in with your <strong>username</strong> (or email if you added one). New here?
+          Use <a href="/signup.html">Sign up</a> first, then return to save your creature.
+        </p>
+      </header>
+
+      <section class="card auth-card" aria-live="polite">
+        <form id="login-form" class="form-grid" novalidate>
+          <label class="field field-span2">
+            <span class="label">Email or username</span>
+            <input
+              name="emailOrUsername"
+              type="text"
+              autocomplete="username"
+              required
+            />
+          </label>
+          <label class="field field-span2">
+            <span class="label">Password</span>
+            <input
+              name="password"
+              type="password"
+              autocomplete="current-password"
+            />
+          </label>
+          <div class="field-span2 auth-actions">
+            <button type="submit" class="btn-primary" id="login-submit">
+              Log in
+            </button>
+          </div>
+        </form>
+        <p id="login-error" class="auth-error" hidden></p>
+        <p class="auth-switch">
+          New here?
+          <a href="/signup.html">Sign up</a>
+          ·
+          <a href="/">Hatchery</a>
+        </p>
+      </section>
+    </main>
+    <script type="module" src="/login.js"></script>
+  </body>
+</html>

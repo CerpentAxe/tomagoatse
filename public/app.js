@@ -4,6 +4,7 @@ const screenLoading = document.getElementById("screen-loading");
 const screenError = document.getElementById("screen-error");
 const screenResult = document.getElementById("screen-result");
 const loadingText = document.getElementById("loading-text");
+const loadingHint = document.getElementById("loading-hint");
 const errorDetail = document.getElementById("error-detail");
 const btnRetry = document.getElementById("btn-retry");
 const resultName = document.getElementById("result-name");
@@ -23,39 +24,32 @@ const btnDiscipline = document.getElementById("btn-discipline");
 const btnEncourage = document.getElementById("btn-encourage");
 const btnNewAbomination = document.getElementById("btn-new-abomination");
 const btnFindFriend = document.getElementById("btn-find-friend");
+const btnTimeToHatch = document.getElementById("btn-time-to-hatch");
+const resultDashboardActions = document.getElementById(
+  "result-dashboard-actions"
+);
+const resultLoginHint = document.getElementById("result-login-hint");
 const careDialog = document.getElementById("care-dialog");
 const careDialogFirst = document.getElementById("care-dialog-first");
 const careDialogAction = document.getElementById("care-dialog-action");
 const careDialogActionSub = document.getElementById("care-dialog-action-sub");
 const careDialogMeterNote = document.getElementById("care-dialog-meter-note");
 const careDialogClose = document.getElementById("care-dialog-close");
-const lightningOverlay = document.getElementById("lightning-overlay");
 const captionIntroDialog = document.getElementById("caption-intro-dialog");
 const captionIntroWrap = document.querySelector(".caption-intro-wrap");
 const captionIntroText = document.getElementById("caption-intro-text");
 
 const WORKING_MSG = "If you see this, it is working";
 const FRIEND_WORKING_MSG = "Finding a kindred spirit…";
-const LIGHTNING_STEP_MS = 100;
-/** One strike = black → white → black → white */
-const LIGHTNING_STRIKES = 4;
+const DEFAULT_LOADING_HINT =
+  "The scientists are working, I promise you they are working, if you see this message they are working.";
 /** dataTransfer payloads for drag-to-care */
 const FEED_DRAG_TYPE = "tomagoatse-feed";
 const DISCIPLINE_DRAG_TYPE = "tomagoatse-discipline";
-
-async function runLightningFlash() {
-  if (!lightningOverlay) return;
-  const colors = ["#000000", "#ffffff", "#000000", "#ffffff"];
-  lightningOverlay.hidden = false;
-  for (let strike = 0; strike < LIGHTNING_STRIKES; strike++) {
-    for (const bg of colors) {
-      lightningOverlay.style.backgroundColor = bg;
-      await new Promise((r) => setTimeout(r, LIGHTNING_STEP_MS));
-    }
-  }
-  lightningOverlay.hidden = true;
-  lightningOverlay.style.backgroundColor = "";
-}
+/** Session handoff for the low-poly character creator page */
+const CREATOR_SESSION_KEY = "tomagoatse-creator-session";
+/** Full result snapshot so “← Hatchery” can return to the portrait + meters, not the empty form */
+const HATCHERY_RESTORE_KEY = "tomagoatse-hatchery-restore";
 
 /**
  * Shows the personality blurb (same as under the portrait) in a modal; click anywhere (panel or padding) closes it.
@@ -190,7 +184,27 @@ const SPECIAL_SELF_FEED_LINES = [
   "It puts the lotion on the skin, or else it gets the hose again",
 ];
 
-/** @type {{ displayName: string, creatureType: string, favouriteFood: string, biggestFear: string, meters: Record<string, number>, fixedMeters: Record<string, number>, careUsedOnce: boolean } | null} */
+/**
+ * @type {{
+ *   displayName: string;
+ *   creatureType: string;
+ *   favouriteFood: string;
+ *   biggestFear: string;
+ *   meters: Record<string, number>;
+ *   fixedMeters: Record<string, number>;
+ *   careUsedOnce: boolean;
+ *   profile: {
+ *     inputName: string;
+ *     gender: string;
+ *     colours: string;
+ *     favouriteSong: string;
+ *     placeOfBirth: string;
+ *     myersBriggs: string;
+ *     sillyProp: string;
+ *     highSchool: string;
+ *   };
+ * } | null}
+ */
 let careSession = null;
 
 function syncFindFriendButton() {
@@ -199,21 +213,226 @@ function syncFindFriendButton() {
     btnFindFriend.disabled = true;
     btnFindFriend.textContent = "Find them a friend";
     btnFindFriend.removeAttribute("title");
+    if (btnTimeToHatch) btnTimeToHatch.disabled = true;
     return;
   }
   const rawName = careSession.displayName.trim() || "them";
   const labelName =
     rawName.length > 28 ? `${rawName.slice(0, 26)}…` : rawName;
   btnFindFriend.textContent = `Find ${labelName} a friend`;
-  btnFindFriend.disabled = !careSession.creatureType?.trim();
-  btnFindFriend.title = careSession.creatureType?.trim()
+  const hasType = Boolean(careSession.creatureType?.trim());
+  btnFindFriend.disabled = !hasType;
+  btnFindFriend.title = hasType
     ? `Same species (${careSession.creatureType.trim()}), same favourite food and fear — new face and story`
     : "";
+  if (btnTimeToHatch) {
+    btnTimeToHatch.disabled = !hasType;
+    btnTimeToHatch.title = hasType
+      ? "Open the low-poly 3D character creator for this hatchling"
+      : "";
+  }
+}
+
+function buildCreatorSessionPayload() {
+  if (!careSession) return null;
+  const portraitRaw =
+    (resultImage &&
+      (resultImage.src ||
+        resultImage.getAttribute("src") ||
+        resultImage.currentSrc)) ||
+    "";
+  const out = {
+    displayName: careSession.displayName,
+    creatureType: careSession.creatureType,
+    favouriteFood: careSession.favouriteFood,
+    biggestFear: careSession.biggestFear,
+    meters: { ...careSession.meters },
+    fixedMeters: { ...careSession.fixedMeters },
+    profile: { ...careSession.profile },
+    tagline: resultTagline?.textContent?.trim() || "",
+    caption: resultCaption?.textContent?.trim() || "",
+  };
+  if (typeof portraitRaw === "string" && portraitRaw.startsWith("data:")) {
+    out.portraitDataUrl = portraitRaw;
+  }
+  return out;
+}
+
+/**
+ * Persist portrait + thumbs + careSession so returning from /creator.html can re-open the result screen.
+ */
+function buildHatcheryRestorePayload() {
+  if (!careSession) return null;
+  const portrait =
+    (resultImage &&
+      (resultImage.src ||
+        resultImage.getAttribute("src") ||
+        resultImage.currentSrc)) ||
+    "";
+  if (!portrait.startsWith("data:")) return null;
+  const foodSrc = foodDragImg?.getAttribute("src") || "";
+  const fearSrc = fearDragImg?.getAttribute("src") || "";
+  return {
+    v: 1,
+    careSession: {
+      ...careSession,
+      meters: { ...careSession.meters },
+      fixedMeters: { ...careSession.fixedMeters },
+      profile: { ...careSession.profile },
+    },
+    displayName: careSession.displayName,
+    oneLiner: resultTagline?.textContent?.trim() || "",
+    personalityParagraph: resultCaption?.textContent?.trim() || "",
+    portraitDataUrl: portrait,
+    foodDataUrl: foodSrc.startsWith("data:") ? foodSrc : null,
+    fearDataUrl: fearSrc.startsWith("data:") ? fearSrc : null,
+    showFoodThumb: Boolean(
+      foodSrc && foodDragWrap && !foodDragWrap.hidden
+    ),
+    showFearThumb: Boolean(
+      fearSrc && fearDragWrap && !fearDragWrap.hidden
+    ),
+    foodAlt: foodDragImg?.getAttribute("alt") || "",
+    fearAlt: fearDragImg?.getAttribute("alt") || "",
+  };
+}
+
+/**
+ * @returns {boolean} true if the result screen was restored from sessionStorage
+ */
+function restoreHatcheryFromStorage() {
+  let raw;
+  try {
+    raw = sessionStorage.getItem(HATCHERY_RESTORE_KEY);
+  } catch {
+    return false;
+  }
+  if (!raw) return false;
+
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    try {
+      sessionStorage.removeItem(HATCHERY_RESTORE_KEY);
+    } catch {
+      /* ignore */
+    }
+    return false;
+  }
+
+  if (!data.careSession || typeof data.portraitDataUrl !== "string") {
+    try {
+      sessionStorage.removeItem(HATCHERY_RESTORE_KEY);
+    } catch {
+      /* ignore */
+    }
+    return false;
+  }
+
+  careSession = data.careSession;
+
+  const name = data.displayName || careSession.displayName || "Your hatchling";
+  resultName.textContent = name;
+  resultTagline.textContent = data.oneLiner || "";
+  resultCaption.textContent = data.personalityParagraph || "";
+  resultImage.src = data.portraitDataUrl;
+  resultImage.alt = `Portrait of ${name}`;
+
+  const hasFood = Boolean(data.showFoodThumb && data.foodDataUrl);
+  const hasFear = Boolean(data.showFearThumb && data.fearDataUrl);
+  if (dragThumbsRow) {
+    dragThumbsRow.hidden = !hasFood && !hasFear;
+  }
+
+  if (foodDragWrap && foodDragImg) {
+    if (hasFood) {
+      foodDragWrap.hidden = false;
+      foodDragImg.src = data.foodDataUrl;
+      foodDragImg.alt = data.foodAlt || "";
+    } else {
+      foodDragWrap.hidden = true;
+      foodDragImg.removeAttribute("src");
+      foodDragImg.alt = "";
+    }
+  }
+
+  if (fearDragWrap && fearDragImg) {
+    if (hasFear) {
+      fearDragWrap.hidden = false;
+      fearDragImg.src = data.fearDataUrl;
+      fearDragImg.alt = data.fearAlt || "";
+    } else {
+      fearDragWrap.hidden = true;
+      fearDragImg.removeAttribute("src");
+      fearDragImg.alt = "";
+    }
+  }
+
+  renderMetersFromSession();
+  syncFeedButtonLabel();
+  setCareButtonsDisabled(false);
+  syncCareDragThumbnails();
+  syncFindFriendButton();
+
+  screenLoading.hidden = true;
+  screenLoading.classList.add("screen-hidden");
+  showScreen("result");
+  return true;
+}
+
+const HATCH_NAV_DELAY_MS = 720;
+const HATCH_NAV_DELAY_REDUCED_MS = 140;
+
+function goToCreatorPage() {
+  const payload = buildCreatorSessionPayload();
+  if (!payload?.creatureType?.trim()) return;
+  try {
+    const snap = buildHatcheryRestorePayload();
+    if (snap) {
+      sessionStorage.setItem(HATCHERY_RESTORE_KEY, JSON.stringify(snap));
+    }
+  } catch (e) {
+    console.warn("Could not save hatchery restore snapshot", e);
+  }
+  try {
+    sessionStorage.setItem(CREATOR_SESSION_KEY, JSON.stringify(payload));
+  } catch (e) {
+    console.error(e);
+    return;
+  }
+
+  const btn = btnTimeToHatch;
+  const reduced =
+    typeof window !== "undefined" &&
+    Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches);
+  const delay = reduced ? HATCH_NAV_DELAY_REDUCED_MS : HATCH_NAV_DELAY_MS;
+
+  if (btn) {
+    btn.disabled = true;
+    btn.setAttribute("aria-busy", "true");
+    btn.textContent = "Hatching…";
+    btn.classList.add(
+      reduced ? "btn-time-to-hatch--hatching-reduced" : "btn-time-to-hatch--hatching"
+    );
+    window.setTimeout(() => {
+      window.location.href = "/creator.html";
+    }, delay);
+  } else {
+    window.location.href = "/creator.html";
+  }
 }
 
 async function runCharacterGenerate(body, options = {}) {
+  try {
+    sessionStorage.removeItem(HATCHERY_RESTORE_KEY);
+  } catch {
+    /* ignore */
+  }
   const loadingMessage = options.loadingMessage ?? WORKING_MSG;
+  const prevProf = options.previousProfile || {};
   loadingText.textContent = loadingMessage;
+  if (loadingHint) loadingHint.textContent = DEFAULT_LOADING_HINT;
   showScreen("loading");
 
   try {
@@ -293,6 +512,16 @@ async function runCharacterGenerate(body, options = {}) {
       },
       fixedMeters: { ...f },
       careUsedOnce: false,
+      profile: {
+        inputName: String(body.name || ""),
+        gender: String(body.gender || ""),
+        colours: String(body.colours || prevProf.colours || ""),
+        favouriteSong: String(body.favouriteSong || prevProf.favouriteSong || ""),
+        placeOfBirth: String(body.placeOfBirth || prevProf.placeOfBirth || ""),
+        myersBriggs: String(body.myersBriggs || prevProf.myersBriggs || ""),
+        sillyProp: String(body.sillyProp || prevProf.sillyProp || ""),
+        highSchool: String(body.highSchool || prevProf.highSchool || ""),
+      },
     };
 
     renderMetersFromSession();
@@ -301,15 +530,40 @@ async function runCharacterGenerate(body, options = {}) {
     syncCareDragThumbnails();
     syncFindFriendButton();
 
-    await runLightningFlash();
     screenLoading.hidden = true;
     screenLoading.classList.add("screen-hidden");
     await showCaptionIntroPopup(resultCaption.textContent);
     showScreen("result");
+    syncDashboardAuthUi();
+    try {
+      const snap = buildHatcheryRestorePayload();
+      if (snap) {
+        sessionStorage.setItem(HATCHERY_RESTORE_KEY, JSON.stringify(snap));
+      }
+    } catch (e) {
+      console.warn("Could not persist hatchery restore after generate", e);
+    }
   } catch (err) {
     console.error(err);
     errorDetail.textContent = err.message || "Network hiccup";
     showScreen("error");
+  }
+}
+
+async function syncDashboardAuthUi() {
+  if (!resultDashboardActions || !resultLoginHint) return;
+  try {
+    const r = await fetch("/api/auth/me", { credentials: "include" });
+    if (r.ok) {
+      resultDashboardActions.hidden = false;
+      resultLoginHint.hidden = true;
+    } else {
+      resultDashboardActions.hidden = true;
+      resultLoginHint.hidden = false;
+    }
+  } catch {
+    resultDashboardActions.hidden = true;
+    resultLoginHint.hidden = false;
   }
 }
 
@@ -719,6 +973,11 @@ form.addEventListener("submit", async (e) => {
 });
 
 function goToCreateForm(options = {}) {
+  try {
+    sessionStorage.removeItem(HATCHERY_RESTORE_KEY);
+  } catch {
+    /* ignore */
+  }
   if (careDialog.open) careDialog.close();
   if (captionIntroDialog?.open) captionIntroDialog.close();
   if (dragThumbsRow) dragThumbsRow.hidden = true;
@@ -743,6 +1002,7 @@ function goToCreateForm(options = {}) {
 
 btnRetry.addEventListener("click", () => {
   loadingText.textContent = WORKING_MSG;
+  if (loadingHint) loadingHint.textContent = DEFAULT_LOADING_HINT;
   goToCreateForm();
 });
 
@@ -767,8 +1027,15 @@ if (btnFindFriend) {
       sillyProp: "",
       highSchool: "",
     };
-    await runCharacterGenerate(body, { loadingMessage: FRIEND_WORKING_MSG });
+    await runCharacterGenerate(body, {
+      loadingMessage: FRIEND_WORKING_MSG,
+      previousProfile: careSession?.profile,
+    });
   });
+}
+
+if (btnTimeToHatch) {
+  btnTimeToHatch.addEventListener("click", () => goToCreatorPage());
 }
 
 btnFeed.addEventListener("click", () => handleCareAction("feed"));
@@ -789,3 +1056,7 @@ careDialog.addEventListener("close", () => {
     careDialogActionSub.hidden = true;
   }
 });
+
+if (restoreHatcheryFromStorage()) {
+  syncDashboardAuthUi();
+}

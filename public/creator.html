@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Low-poly hatchling — Tomagoatse</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/creator.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <!-- Required so OrbitControls (and other examples/jsm modules) can resolve `import … from "three"`. -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body class="creator-body">
+    <div class="bg-noise" aria-hidden="true"></div>
+    <main class="creator-shell">
+      <header class="creator-header">
+        <a class="creator-back" href="/" title="Return to your hatchling and portrait">← Hatchery</a>
+        <div class="creator-header-text">
+          <h1 id="creator-title">Character creator</h1>
+          <p id="creator-subtitle" class="creator-subtitle"></p>
+        </div>
+      </header>
+
+      <div id="creator-error" class="creator-error card" hidden>
+        <p id="creator-error-msg"></p>
+        <a class="btn-secondary" href="/">Back to hatchery</a>
+      </div>
+
+      <div id="creator-loading" class="creator-loading card" hidden>
+        <p>Designing your low-poly creature from the Hugging Face model…</p>
+      </div>
+
+      <div id="creator-main" class="creator-main" hidden>
+        <div id="creator-signup-wrap" class="creator-signup-wrap card" hidden>
+          <p class="creator-signup-lead">
+            Your low-poly design only lives in this browser tab until you save it to
+            your account.
+          </p>
+          <button type="button" class="btn-signup-save" id="creator-btn-signup-save">
+            Save your beautiful child
+          </button>
+        </div>
+        <aside
+          id="creator-spec-panel"
+          class="creator-spec-panel card"
+          aria-label="Model inputs and creature design"
+          hidden
+        ></aside>
+        <section class="creator-view card" aria-label="3D preview">
+          <div class="creator-canvas-wrap">
+          <div id="creator-canvas-host" class="creator-canvas-host"></div>
+          <div
+            id="creator-mobile-preview-ui"
+            class="creator-mobile-preview-ui"
+            aria-hidden="true"
+          >
+            <p class="creator-mobile-orbit-hint">Drag to orbit · pinch to zoom</p>
+            <div class="creator-mobile-pad" role="group" aria-label="Move on the ground">
+              <span class="creator-pad-spacer" aria-hidden="true"></span>
+              <button type="button" class="creator-mbtn" data-vkey="KeyW" aria-label="Forward">
+                ↑
+              </button>
+              <span class="creator-pad-spacer" aria-hidden="true"></span>
+              <button type="button" class="creator-mbtn" data-vkey="KeyA" aria-label="Left">
+                ←
+              </button>
+              <button type="button" class="creator-mbtn" data-vkey="KeyS" aria-label="Back">
+                ↓
+              </button>
+              <button type="button" class="creator-mbtn" data-vkey="KeyD" aria-label="Right">
+                →
+              </button>
+            </div>
+            <div class="creator-mobile-actions" role="group" aria-label="Actions">
+              <button type="button" class="creator-mbtn-action" data-action="jump">
+                Jump
+              </button>
+              <button type="button" class="creator-mbtn-action" data-action="duck">
+                Duck
+              </button>
+              <button type="button" class="creator-mbtn-action" data-action="hide">
+                Hide
+              </button>
+              <button
+                type="button"
+                class="creator-mbtn-action creator-mobile-fly"
+                data-action="fly"
+                hidden
+              >
+                Fly
+              </button>
+              <button
+                type="button"
+                class="creator-mbtn-action creator-mobile-rise"
+                data-action="rise"
+                hidden
+              >
+                Rise
+              </button>
+            </div>
+          </div>
+          </div>
+          <div
+            class="creator-bg-picker"
+            role="group"
+            aria-label="Preview background colour"
+          >
+            <span class="creator-bg-picker-label">Background</span>
+            <div class="creator-bg-swatches">
+              <button
+                type="button"
+                class="creator-bg-btn"
+                data-bg-hex="000000"
+                aria-pressed="true"
+              >
+                Black
+              </button>
+              <button type="button" class="creator-bg-btn" data-bg-hex="ffffff">
+                White
+              </button>
+              <button type="button" class="creator-bg-btn" data-bg-hex="cc2222">
+                Red
+              </button>
+              <button type="button" class="creator-bg-btn" data-bg-hex="ffdd00">
+                Yellow
+              </button>
+              <button type="button" class="creator-bg-btn" data-bg-hex="2266cc">
+                Blue
+              </button>
+            </div>
+          </div>
+          <p id="creator-spec-warning" class="creator-spec-warning" hidden></p>
+          <div
+            class="creator-controls-panel"
+            id="creator-controls-panel"
+            aria-label="3D preview keyboard controls"
+          >
+            <h3 class="creator-controls-title">Preview controls</h3>
+            <p class="creator-controls-lead creator-controls-lead-desktop">
+              Click the preview to focus, then use the keyboard (disabled while typing in form fields).
+            </p>
+            <p class="creator-controls-lead creator-controls-lead-mobile" hidden>
+              Use the on-screen pad and buttons under the preview. Keyboard shortcuts work if you plug in a keyboard.
+            </p>
+            <ul class="creator-controls-list creator-controls-list-desktop">
+              <li><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or arrows — move (forward / left / back / right)</li>
+              <li><kbd>Space</kbd> — jump (on the ground)</li>
+              <li><kbd>Ctrl</kbd> — duck (hold)</li>
+              <li><kbd>H</kbd> — hide / show</li>
+              <li id="creator-controls-flight" class="creator-controls-flight" hidden>
+                <kbd>F</kbd> — toggle flight · <kbd>Space</kbd> / <kbd>Ctrl</kbd> — rise / descend while flying (wings only)
+              </li>
+            </ul>
+            <ul class="creator-controls-list creator-controls-list-mobile" hidden>
+              <li>Pad — walk · Jump / Duck / Hide</li>
+              <li id="creator-controls-flight-mobile" class="creator-controls-flight" hidden>
+                Fly — toggle flight · Rise — hold while flying (wings)
+              </li>
+            </ul>
+          </div>
+          <p class="creator-hint creator-hint-desktop">
+            Drag to orbit · scroll to zoom — faceted low-poly preview
+          </p>
+          <p class="creator-hint creator-hint-mobile" hidden>
+            Drag to orbit · pinch to zoom — faceted low-poly preview
+          </p>
+        </section>
+        <aside class="creator-side card">
+          <h2 class="creator-side-title">Personality &amp; vitals</h2>
+          <div class="creator-field-row creator-display-name-row">
+            <label for="creator-display-name">Display name</label>
+            <input
+              type="text"
+              id="creator-display-name"
+              name="displayName"
+              autocomplete="nickname"
+              maxlength="120"
+            />
+          </div>
+          <div class="creator-story-readonly" aria-label="Hatchling story (read-only)">
+            <div class="creator-ro-row">
+              <span class="creator-ro-label">Favourite food</span>
+              <span id="creator-ro-food" class="creator-ro-value"></span>
+            </div>
+            <div class="creator-ro-row">
+              <span class="creator-ro-label">Biggest fear</span>
+              <span id="creator-ro-fear" class="creator-ro-value"></span>
+            </div>
+            <div class="creator-ro-row">
+              <span class="creator-ro-label">Favourite song</span>
+              <span id="creator-ro-song" class="creator-ro-value"></span>
+            </div>
+            <div class="creator-ro-row">
+              <span class="creator-ro-label">Place of birth</span>
+              <span id="creator-ro-birth" class="creator-ro-value"></span>
+            </div>
+            <div class="creator-ro-row">
+              <span class="creator-ro-label">Myers-Briggs</span>
+              <span id="creator-ro-mbti" class="creator-ro-value"></span>
+            </div>
+            <div class="creator-ro-row">
+              <span class="creator-ro-label">Silly prop</span>
+              <span id="creator-ro-prop" class="creator-ro-value"></span>
+            </div>
+          </div>
+          <h3 class="meters-title creator-meters-ro-title">
+            Personality meters
+            <small>(from hatchery)</small>
+          </h3>
+          <div id="creator-meter-dynamic" class="meter-list"></div>
+          <h3 class="meters-title">Vitals</h3>
+          <div id="creator-meter-fixed" class="meter-list"></div>
+          <p id="creator-tagline" class="creator-tagline"></p>
+          <p id="creator-caption" class="creator-caption" hidden></p>
+          <details class="creator-spec-details">
+            <summary>Generated design spec (JSON)</summary>
+            <pre id="creator-spec-pre" class="creator-spec-pre"></pre>
+          </details>
+        </aside>
+      </div>
+    </main>
+    <script type="module" src="/creator.js"></script>
+  </body>
+</html>

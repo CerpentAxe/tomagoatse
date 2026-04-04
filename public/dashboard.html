@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Home for abandoned creatures — Tomagoatse</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="bg-noise" aria-hidden="true"></div>
+    <main class="shell dashboard-shell">
+      <nav class="dashboard-nav-bar" aria-label="Account and tools">
+        <div class="dashboard-header-actions">
+          <a class="btn-secondary" href="/settings.html">Settings</a>
+          <a class="btn-secondary" href="/">Hatchery</a>
+          <a class="btn-secondary" href="/creator.html">Low-poly creator</a>
+          <button type="button" id="dashboard-logout" class="dashboard-logout">
+            Log out
+          </button>
+        </div>
+      </nav>
+      <div class="dashboard-header">
+        <header>
+          <p class="hero-kicker">Your collection</p>
+          <h1>Home for abandoned creatures</h1>
+          <p class="dashboard-performance-note">
+            Loads slowly when there are more than one or two creatures, I assume
+            it has nothing to do with how this is coded
+          </p>
+          <p id="dashboard-user-line" class="hero-sub"></p>
+        </header>
+      </div>
+
+      <p id="dashboard-loading" class="card">Loading your hatchlings…</p>
+
+      <div id="dashboard-empty" class="card dashboard-empty" hidden>
+        <p>No saved hatchlings yet. Generate one on the hatchery and save it here.</p>
+        <a class="btn-primary" href="/">Open hatchery</a>
+      </div>
+
+      <p id="dashboard-error" class="card dashboard-error" hidden></p>
+
+      <ul
+        id="dashboard-grid"
+        class="dashboard-grid"
+        aria-label="Saved creatures"
+        hidden
+      ></ul>
+    </main>
+    <script type="module" src="/dashboard.js"></script>
+  </body>
+</html>

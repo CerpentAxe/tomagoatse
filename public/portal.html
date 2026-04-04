@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Communication portal — Tomagoatse</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="bg-noise" aria-hidden="true"></div>
+    <main class="shell dashboard-shell portal-shell">
+      <div class="dashboard-header">
+        <header>
+          <p class="hero-kicker">Messages</p>
+          <h1 id="portal-title">Communication portal</h1>
+          <p id="portal-sub" class="hero-sub"></p>
+        </header>
+        <div class="dashboard-header-actions">
+          <a id="portal-creature-link" class="btn-secondary" href="/my-creature.html">Your creature</a>
+          <a id="portal-home" class="btn-secondary" href="/dashboard.html">Home</a>
+          <button type="button" id="portal-logout" class="dashboard-logout">Log out</button>
+        </div>
+      </div>
+
+      <p id="portal-loading" class="card">Loading…</p>
+      <p id="portal-error" class="card dashboard-error" hidden></p>
+
+      <div id="portal-content" class="portal-card card" hidden>
+        <p id="portal-parent-note" class="portal-parent-note" role="note"></p>
+        <p id="portal-status" class="portal-status" role="status" hidden></p>
+        <div id="portal-continue-wrap" class="portal-continue-wrap" hidden>
+          <button type="button" id="portal-continue-btn" class="btn-secondary">
+            Continue the conversation
+          </button>
+          <p id="portal-continue-hint" class="portal-continue-hint"></p>
+        </div>
+        <div id="portal-unblock-wrap" class="portal-unblock-wrap" hidden>
+          <button type="button" id="portal-unblock-btn" class="btn-secondary">
+            Unblock yourself
+          </button>
+          <p class="portal-unblock-hint">
+            Skip the wait and send another message now (simulated replies may still be scheduled).
+          </p>
+        </div>
+        <div id="portal-thread" class="portal-thread" aria-live="polite"></div>
+        <form id="portal-form" class="portal-form">
+          <label class="portal-form-label" for="portal-input">Message</label>
+          <div id="portal-input-wrap" class="portal-input-wrap">
+            <div
+              id="portal-typing-overlay"
+              class="portal-typing-overlay"
+              hidden
+              aria-hidden="true"
+            >
+              <span class="portal-typing-line">
+                <span id="portal-typing-label"></span><span class="portal-typing-ellipsis" aria-hidden="true">...</span>
+              </span>
+            </div>
+            <textarea
+              id="portal-input"
+              class="portal-input"
+              rows="3"
+              maxlength="2000"
+              placeholder="Say something…"
+              required
+            ></textarea>
+          </div>
+          <div class="portal-form-actions">
+            <button type="submit" class="btn-secondary" id="portal-send">Send</button>
+          </div>
+        </form>
+      </div>
+    </main>
+    <script type="module" src="/portal.js"></script>
+  </body>
+</html>

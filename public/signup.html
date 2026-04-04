@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sign up — Tomagoatse</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="bg-noise" aria-hidden="true"></div>
+    <main class="shell auth-shell">
+      <header class="hero auth-hero">
+        <p class="hero-kicker">Save your hatchling</p>
+        <h1>Create an account</h1>
+        <p class="hero-sub">
+          One password, and your low-poly design plus all story and meter fields
+          stay with you. A <strong>unique username</strong> is enough; email is optional if you want one.
+        </p>
+      </header>
+
+      <section class="card auth-card" aria-live="polite">
+        <p id="signup-pending-note" class="auth-pending-note" hidden></p>
+        <form id="signup-form" class="form-grid" novalidate>
+          <label class="field field-span2">
+            <span class="label">Username <small>(unique — use this if you skip email)</small></span>
+            <input
+              name="username"
+              type="text"
+              autocomplete="username"
+              minlength="3"
+              maxlength="32"
+              pattern="[a-zA-Z0-9_]{3,32}"
+              title="3–32 characters: letters, numbers, underscores"
+            />
+          </label>
+          <label class="field field-span2">
+            <span class="label">Email <small>(optional — use Username above if you don’t have one)</small></span>
+            <input
+              name="email"
+              type="text"
+              autocomplete="email"
+              inputmode="email"
+              placeholder="you@example.com"
+            />
+          </label>
+          <label class="field">
+            <span class="label">Password</span>
+            <input
+              name="password"
+              type="password"
+              autocomplete="new-password"
+            />
+          </label>
+          <label class="field">
+            <span class="label">Confirm password</span>
+            <input
+              name="password2"
+              type="password"
+              autocomplete="new-password"
+            />
+          </label>
+          <div class="field-span2 auth-actions">
+            <button type="submit" class="btn-primary" id="signup-submit">
+              Create account &amp; save
+            </button>
+          </div>
+        </form>
+        <p id="signup-error" class="auth-error" hidden></p>
+        <p class="auth-switch">
+          Already have an account?
+          <a href="/login.html">Log in</a>
+          ·
+          <a href="/dashboard.html">Dashboard</a>
+          ·
+          <a href="/creator.html">Low-poly creator</a>
+        </p>
+      </section>
+    </main>
+    <script type="module" src="/signup.js"></script>
+  </body>
+</html>

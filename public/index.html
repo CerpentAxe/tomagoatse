@@ -13,12 +13,6 @@
     />
   </head>
   <body>
-    <div
-      id="lightning-overlay"
-      class="lightning-overlay"
-      hidden
-      aria-hidden="true"
-    ></div>
     <div class="bg-noise" aria-hidden="true"></div>
     <main class="shell">
       <header class="hero">
@@ -139,7 +133,9 @@
           </div>
         </div>
         <p class="loading-message" id="loading-text">If you see this, it is working</p>
-        <p class="loading-hint">The scientists are working, I promise you they are working, if you see this message they are working.</p>
+        <p class="loading-hint" id="loading-hint">
+          The scientists are working, I promise you they are working, if you see this message they are working.
+        </p>
       </section>
 
       <!-- Screen: error -->
@@ -153,6 +149,14 @@
       <section id="screen-result" class="screen card screen-hidden" hidden aria-live="polite">
         <div class="result-header">
           <h2 id="result-name"></h2>
+          <button
+            type="button"
+            class="btn-time-to-hatch"
+            id="btn-time-to-hatch"
+            disabled
+          >
+            Click here to hatch me!
+          </button>
           <p id="result-tagline" class="tagline"></p>
         </div>
         <div class="result-body">
@@ -223,6 +227,19 @@
             >
               Find them a friend
             </button>
+            <div class="result-dashboard-row" id="result-dashboard-row">
+              <div
+                id="result-dashboard-actions"
+                class="result-dashboard-actions"
+                hidden
+              >
+                <a href="/dashboard.html" class="btn-secondary">My dashboard</a>
+              </div>
+              <p id="result-login-hint" class="result-login-hint" hidden>
+                <a href="/login.html?next=/dashboard.html">Log in</a> to save
+                hatchlings to your collection.
+              </p>
+            </div>
           </div>
         </div>
       </section>
