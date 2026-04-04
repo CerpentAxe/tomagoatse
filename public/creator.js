@@ -5,6 +5,11 @@
 
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import {
+  storePendingSavePayload,
+  loadPendingSavePayloadString,
+  clearPendingSavePayload,
+} from "./pending-save.js";
 
 const CREATOR_SESSION_KEY = "tomagoatse-creator-session";
 
@@ -2221,7 +2226,6 @@ function initThree(spec, hostEl) {
 }
 
 const BOOTSTRAP_CREATOR_KEY = "tomagoatse-bootstrap-creator";
-const PENDING_SAVE_KEY = "tomagoatse-pending-save";
 /** Same key as hatchery `app.js` — snapshot includes generated portrait `portraitDataUrl`. */
 const HATCHERY_RESTORE_KEY = "tomagoatse-hatchery-restore";
 
@@ -2295,12 +2299,7 @@ function goToSavedCreaturePage(data) {
 
 /** After logging in from “Save”, complete the pending save automatically. */
 async function tryFlushPendingSaveIfLoggedIn() {
-  let raw;
-  try {
-    raw = sessionStorage.getItem(PENDING_SAVE_KEY);
-  } catch {
-    return;
-  }
+  const raw = await loadPendingSavePayloadString();
   if (!raw) return;
   const me = await fetch("/api/auth/me", { credentials: "include" });
   if (!me.ok) return;
@@ -2323,11 +2322,7 @@ async function tryFlushPendingSaveIfLoggedIn() {
   });
   if (!res.ok) return;
   const data = await res.json().catch(() => ({}));
-  try {
-    sessionStorage.removeItem(PENDING_SAVE_KEY);
-  } catch {
-    /* ignore */
-  }
+  await clearPendingSavePayload();
   goToSavedCreaturePage(data);
 }
 
@@ -2573,10 +2568,12 @@ async function main() {
       const me = await fetch("/api/auth/me", { credentials: "include" });
       if (!me.ok) {
         try {
-          sessionStorage.setItem(PENDING_SAVE_KEY, JSON.stringify(payload));
+          await storePendingSavePayload(payload);
         } catch (e) {
           console.error(e);
-          alert("Could not store your design for sign-in. Try again.");
+          alert(
+            "Could not store your design for sign-in (browser storage full or blocked). Try signing in first in another tab, then save again, or use a smaller hatchery portrait."
+          );
           return;
         }
         window.location.href =

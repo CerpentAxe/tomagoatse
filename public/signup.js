@@ -1,4 +1,7 @@
-const PENDING_SAVE_KEY = "tomagoatse-pending-save";
+import {
+  loadPendingSavePayloadString,
+  clearPendingSavePayload,
+} from "./pending-save.js";
 
 const form = document.getElementById("signup-form");
 const errEl = document.getElementById("signup-error");
@@ -12,18 +15,15 @@ function showError(msg) {
 }
 
 let pendingPayload = null;
-try {
-  const raw = sessionStorage.getItem(PENDING_SAVE_KEY);
-  if (raw) {
-    pendingPayload = JSON.parse(raw);
-  }
-} catch {
-  pendingPayload = null;
-}
 
-const loginLink = document.querySelector('a[href="/login.html"]');
-if (loginLink && window.location.search) {
-  loginLink.href = "/login.html" + window.location.search;
+async function refreshPendingPayload() {
+  try {
+    const raw = await loadPendingSavePayloadString();
+    pendingPayload = raw ? JSON.parse(raw) : null;
+  } catch {
+    pendingPayload = null;
+  }
+  return pendingPayload;
 }
 
 function pronounForCreatorSession(session) {
@@ -34,7 +34,8 @@ function pronounForCreatorSession(session) {
   return "it";
 }
 
-if (pendingNote) {
+function fillPendingNote() {
+  if (!pendingNote) return;
   if (pendingPayload?.creator?.spec) {
     const session = pendingPayload.creator.session || {};
     const name = session.displayName?.trim() || "your creature";
@@ -48,9 +49,18 @@ if (pendingNote) {
   }
 }
 
+const loginLink = document.querySelector('a[href="/login.html"]');
+if (loginLink && window.location.search) {
+  loginLink.href = "/login.html" + window.location.search;
+}
+
+refreshPendingPayload().then(() => fillPendingNote());
+
 form?.addEventListener("submit", async (e) => {
   e.preventDefault();
   showError("");
+  await refreshPendingPayload();
+
   const fd = new FormData(form);
   let email = String(fd.get("email") || "").trim();
   let username = String(fd.get("username") || "").trim();
@@ -122,11 +132,7 @@ form?.addEventListener("submit", async (e) => {
       submitBtn.textContent = "Create account & save";
       return;
     }
-    try {
-      sessionStorage.removeItem(PENDING_SAVE_KEY);
-    } catch {
-      /* ignore */
-    }
+    await clearPendingSavePayload();
     const next = new URLSearchParams(window.location.search).get("next");
     const dest =
       next && next.startsWith("/") && !next.startsWith("//")
