@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Admin — Tomagoatse</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/admin.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="admin-body">
+    <div class="bg-noise" aria-hidden="true"></div>
+    <main class="shell admin-shell">
+      <header class="admin-header">
+        <p class="hero-kicker">Operator</p>
+        <h1>Accounts &amp; hatchlings</h1>
+        <p class="admin-lead">
+          Requires <code>ADMIN_SECRET</code> on the server. Do not share this page or your secret.
+        </p>
+        <nav class="admin-nav">
+          <a class="btn-secondary" href="/">Hatchery</a>
+          <a class="btn-secondary" href="/dashboard.html">Dashboard</a>
+        </nav>
+      </header>
+
+      <section class="card admin-gate" id="admin-gate">
+        <label class="admin-secret-label" for="admin-secret-input">Admin secret</label>
+        <div class="admin-secret-row">
+          <input
+            id="admin-secret-input"
+            type="password"
+            autocomplete="off"
+            class="admin-secret-input"
+            placeholder="Paste the value from ADMIN_SECRET"
+          />
+          <button type="button" class="btn-primary" id="admin-load-btn">Load data</button>
+        </div>
+        <p id="admin-error" class="admin-error" hidden></p>
+      </section>
+
+      <section class="admin-results card" id="admin-results" hidden>
+        <div class="admin-results-head">
+          <p class="admin-meta" id="admin-meta"></p>
+          <button type="button" class="btn-secondary" id="admin-refresh-btn">Refresh</button>
+        </div>
+        <div id="admin-table-wrap" class="admin-table-wrap"></div>
+      </section>
+    </main>
+    <script src="/admin.js" defer></script>
+  </body>
+</html>

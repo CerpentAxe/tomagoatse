@@ -153,7 +153,11 @@ body {
 
 .hero-front-links {
   margin: 1rem 0 0;
-  text-align: center;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
 }
 
 .card {

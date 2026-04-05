@@ -29,6 +29,8 @@ const resultDashboardActions = document.getElementById(
   "result-dashboard-actions"
 );
 const resultLoginHint = document.getElementById("result-login-hint");
+const heroFrontHome = document.getElementById("hero-front-home");
+const heroFrontLogin = document.getElementById("hero-front-login");
 const careDialog = document.getElementById("care-dialog");
 const careDialogFirst = document.getElementById("care-dialog-first");
 const careDialogAction = document.getElementById("care-dialog-action");
@@ -567,6 +569,23 @@ async function syncDashboardAuthUi() {
   }
 }
 
+async function syncHeroFrontAuth() {
+  if (!heroFrontHome || !heroFrontLogin) return;
+  try {
+    const r = await fetch("/api/auth/me", { credentials: "include" });
+    if (r.ok) {
+      heroFrontHome.hidden = false;
+      heroFrontLogin.hidden = true;
+    } else {
+      heroFrontHome.hidden = true;
+      heroFrontLogin.hidden = false;
+    }
+  } catch {
+    heroFrontHome.hidden = true;
+    heroFrontLogin.hidden = false;
+  }
+}
+
 function showScreen(which) {
   const screens = [
     [screenForm, "form"],
@@ -1057,6 +1076,7 @@ careDialog.addEventListener("close", () => {
   }
 });
 
+syncHeroFrontAuth();
 if (restoreHatcheryFromStorage()) {
   syncDashboardAuthUi();
 }

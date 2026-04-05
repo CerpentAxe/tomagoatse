@@ -605,6 +605,35 @@ function requireAuth(req, res, next) {
   next();
 }
 
+/** Bearer token or `X-Admin-Secret` must match `process.env.ADMIN_SECRET` (12+ chars). */
+function requireAdmin(req, res, next) {
+  if (!pgPool) {
+    return res.status(503).json({
+      error: "db_unavailable",
+      message: "Database not configured.",
+    });
+  }
+  const configured = process.env.ADMIN_SECRET;
+  if (!configured || String(configured).trim().length < 12) {
+    return res.status(503).json({
+      error: "admin_disabled",
+      message:
+        "Set ADMIN_SECRET in the server environment (12+ characters) to enable the admin API.",
+    });
+  }
+  const secret = String(configured).trim();
+  const auth = req.headers.authorization || "";
+  const bearer = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
+  const header = String(req.headers["x-admin-secret"] || "").trim();
+  if (bearer === secret || header === secret) {
+    return next();
+  }
+  return res.status(401).json({
+    error: "admin_unauthorized",
+    message: "Invalid or missing admin secret.",
+  });
+}
+
 function validateUsername(u) {
   if (u == null || u === "") return null;
   const t = String(u).trim();
@@ -770,6 +799,61 @@ app.get("/api/auth/me", (req, res) => {
       username: req.session.username,
     },
   });
+});
+
+/**
+ * Admin: all accounts and their saved creatures (no passwords, no full JSON payloads).
+ * Protected by ADMIN_SECRET (Bearer or X-Admin-Secret header).
+ */
+app.get("/api/admin/overview", requireAdmin, async (req, res) => {
+  try {
+    const usersR = await pgPool.query(
+      `SELECT id, email, username, created_at FROM users ORDER BY created_at DESC`
+    );
+    const creaturesR = await pgPool.query(
+      `SELECT c.id, c.user_id, c.title, c.town, c.created_at, c.updated_at,
+        COALESCE(
+          NULLIF(trim(c.payload #>> '{hatchery,displayName}'), ''),
+          NULLIF(trim(c.payload #>> '{creator,session,displayName}'), ''),
+          c.title
+        ) AS display_name
+       FROM creatures c
+       ORDER BY c.updated_at DESC`
+    );
+    const byUser = new Map();
+    for (const row of usersR.rows) {
+      byUser.set(row.id, {
+        id: row.id,
+        email: row.email,
+        username: row.username,
+        created_at: row.created_at,
+        creatures: [],
+      });
+    }
+    for (const c of creaturesR.rows) {
+      const u = byUser.get(c.user_id);
+      if (u) {
+        u.creatures.push({
+          id: c.id,
+          title: c.title,
+          town: c.town,
+          display_name: c.display_name,
+          created_at: c.created_at,
+          updated_at: c.updated_at,
+        });
+      }
+    }
+    return res.json({
+      users: Array.from(byUser.values()),
+      generated_at: new Date().toISOString(),
+    });
+  } catch (e) {
+    console.error("[GET /api/admin/overview]", e);
+    return res.status(500).json({
+      error: "admin_overview_failed",
+      message: String(e?.message || e),
+    });
+  }
 });
 
 app.get("/api/settings", requireAuth, async (req, res) => {

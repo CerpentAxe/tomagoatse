@@ -1,0 +1,176 @@
+.admin-body {
+  min-height: 100vh;
+}
+
+.admin-shell {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1.25rem 1rem 2.5rem;
+}
+
+.admin-header {
+  margin-bottom: 1.25rem;
+}
+
+.admin-header h1 {
+  font-family: var(--font-display, "Fredoka", sans-serif);
+  font-size: 1.75rem;
+  margin: 0 0 0.5rem;
+  color: var(--ink, #2a2438);
+}
+
+.admin-lead {
+  margin: 0 0 1rem;
+  color: rgba(42, 36, 56, 0.75);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.admin-lead code {
+  font-size: 0.85em;
+  padding: 0.1rem 0.35rem;
+  border-radius: 6px;
+  background: rgba(42, 36, 56, 0.08);
+}
+
+.admin-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.admin-gate {
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.admin-secret-label {
+  display: block;
+  font-weight: 600;
+  font-size: 0.85rem;
+  margin-bottom: 0.35rem;
+  color: var(--ink, #2a2438);
+}
+
+.admin-secret-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.admin-secret-input {
+  flex: 1 1 220px;
+  min-width: 0;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgba(42, 36, 56, 0.2);
+  border-radius: 10px;
+  font-size: 0.95rem;
+}
+
+.admin-error {
+  margin: 0.75rem 0 0;
+  color: #b03030;
+  font-size: 0.9rem;
+}
+
+.admin-results {
+  padding: 1.25rem;
+}
+
+.admin-results-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.admin-meta {
+  margin: 0;
+  font-size: 0.85rem;
+  color: rgba(42, 36, 56, 0.65);
+}
+
+.admin-table-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+.admin-user-block {
+  padding: 0;
+  border-bottom: 1px solid rgba(42, 36, 56, 0.12);
+  padding-bottom: 1.25rem;
+}
+
+.admin-user-block:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.admin-user-title {
+  font-family: var(--font-display, "Fredoka", sans-serif);
+  font-size: 1.15rem;
+  margin: 0 0 0.35rem;
+  color: var(--ink, #2a2438);
+}
+
+.admin-user-meta {
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+  color: rgba(42, 36, 56, 0.55);
+}
+
+.admin-user-meta code {
+  font-size: 0.78rem;
+  word-break: break-all;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.admin-table th,
+.admin-table td {
+  text-align: left;
+  padding: 0.45rem 0.5rem;
+  border-bottom: 1px solid rgba(42, 36, 56, 0.08);
+}
+
+.admin-table th {
+  font-weight: 700;
+  color: rgba(42, 36, 56, 0.55);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.admin-table a {
+  color: var(--mint-dark, #3fa08c);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.admin-table a:hover {
+  text-decoration: underline;
+}
+
+.admin-no-creatures,
+.admin-empty {
+  margin: 0.25rem 0 0;
+  font-size: 0.88rem;
+  color: rgba(42, 36, 56, 0.55);
+  font-style: italic;
+}
+
+@media (max-width: 600px) {
+  .admin-table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
