@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Maze editor — Tomagoatse</title>
+    <link rel="stylesheet" href="/consciousness_generator.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body class="cg-body">
+    <header class="cg-header">
+      <a class="cg-back" id="cg-back-link" href="/dashboard.html">← Back</a>
+      <h1 class="cg-title">Maze editor</h1>
+      <p class="cg-sub">
+        Paint floor and walls, place start and finish, nudge a selection with arrow keys, then save to link this maze to
+        your hatchling.
+      </p>
+    </header>
+
+    <p id="cg-error" class="cg-error" hidden></p>
+
+    <main id="cg-main" class="cg-main" hidden>
+      <div class="cg-toolbar card">
+        <label class="cg-field">
+          <span class="cg-label">Maze name</span>
+          <input type="text" id="cg-name" maxlength="96" />
+        </label>
+        <p id="cg-ai-caption" class="cg-ai-caption" hidden></p>
+        <fieldset class="cg-tools">
+          <legend class="cg-legend">Tools</legend>
+          <div class="cg-tool-row">
+            <label class="cg-radio"
+              ><input type="radio" name="cg-tool" value="floor" checked /> Floor</label
+            >
+            <label class="cg-radio"><input type="radio" name="cg-tool" value="wall" /> Wall</label>
+            <label class="cg-radio"><input type="radio" name="cg-tool" value="start" /> Start</label>
+            <label class="cg-radio"><input type="radio" name="cg-tool" value="end" /> Finish</label>
+            <label class="cg-radio"><input type="radio" name="cg-tool" value="select" /> Select</label>
+          </div>
+          <p class="cg-hint">With Select: drag a rectangle, then arrow keys move that block (into empty space).</p>
+        </fieldset>
+        <fieldset class="cg-colors">
+          <legend class="cg-legend">Colour scheme</legend>
+          <div class="cg-color-grid">
+            <label class="cg-color-field"
+              ><span>Floor</span><input type="color" id="cg-c-floor" value="#c4a574"
+            /></label>
+            <label class="cg-color-field"><span>Wall</span><input type="color" id="cg-c-wall" value="#5c4a3a" /></label>
+            <label class="cg-color-field"><span>Rim</span><input type="color" id="cg-c-rim" value="#8b7355" /></label>
+            <label class="cg-color-field"
+              ><span>Sky</span><input type="color" id="cg-c-bg" value="#d4a574"
+            /></label>
+            <label class="cg-color-field"><span>Fog</span><input type="color" id="cg-c-fog" value="#c9a66b" /></label>
+          </div>
+        </fieldset>
+        <div class="cg-actions">
+          <button type="button" class="cg-btn cg-btn-primary" id="cg-save">Save maze</button>
+          <p id="cg-status" class="cg-status" role="status" aria-live="polite"></p>
+        </div>
+      </div>
+
+      <div class="cg-work-row">
+        <div id="cg-reference-panel" class="cg-reference-panel card" hidden>
+          <h2 class="cg-panel-title">Your reference</h2>
+          <div class="cg-reference-frame">
+            <img
+              id="cg-reference-img"
+              alt=""
+              width="512"
+              height="512"
+              decoding="async"
+            />
+          </div>
+        </div>
+
+        <div class="cg-canvas-panel card">
+          <div class="cg-canvas-heading">
+            <h2 class="cg-panel-title">Top-down grid</h2>
+            <button type="button" class="cg-btn cg-btn-secondary" id="cg-clean-up" disabled>
+              Clean up maze
+            </button>
+          </div>
+          <p class="cg-clean-up-hint">
+            Sends your reference and this grid to the server so a vision model can return a refined wall/path map.
+            Requires Hugging Face inference (API key on the server) and a vision-capable chat model.
+          </p>
+          <div class="cg-canvas-wrap">
+            <canvas id="cg-canvas" width="600" height="600" aria-label="Maze grid editor"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="cg-preview-panel card">
+        <h2 class="cg-panel-title">Preview</h2>
+        <div id="cg-preview-host" class="cg-preview-host" tabindex="-1"></div>
+      </div>
+    </main>
+
+    <script type="module" src="/consciousness_generator.js"></script>
+  </body>
+</html>

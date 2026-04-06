@@ -37,6 +37,13 @@ const careDialogAction = document.getElementById("care-dialog-action");
 const careDialogActionSub = document.getElementById("care-dialog-action-sub");
 const careDialogMeterNote = document.getElementById("care-dialog-meter-note");
 const careDialogClose = document.getElementById("care-dialog-close");
+const findFriendWarningDialog = document.getElementById(
+  "find-friend-warning-dialog"
+);
+const findFriendWarningBack = document.getElementById("find-friend-warning-back");
+const findFriendWarningProceed = document.getElementById(
+  "find-friend-warning-proceed"
+);
 const captionIntroDialog = document.getElementById("caption-intro-dialog");
 const captionIntroWrap = document.querySelector(".caption-intro-wrap");
 const captionIntroText = document.getElementById("caption-intro-text");
@@ -52,6 +59,53 @@ const DISCIPLINE_DRAG_TYPE = "tomagoatse-discipline";
 const CREATOR_SESSION_KEY = "tomagoatse-creator-session";
 /** Full result snapshot so “← Hatchery” can return to the portrait + meters, not the empty form */
 const HATCHERY_RESTORE_KEY = "tomagoatse-hatchery-restore";
+
+const FIND_FRIEND_CONFIRM_FALLBACK =
+  "If you proceed without saving your Goatse, you will lose it. Continue anyway?";
+
+const HATCH_BTN_DEFAULT = "Click here to hatch me!";
+
+function isSessionStorageQuotaError(e) {
+  const n = e && e.name;
+  return n === "QuotaExceededError" || n === "NS_ERROR_DOM_QUOTA_REACHED";
+}
+
+/** After bfcache restore (e.g. Back from creator), the hatch button can stay disabled with “Hatching…”. */
+function resetTimeToHatchButton() {
+  if (!btnTimeToHatch) return;
+  btnTimeToHatch.removeAttribute("aria-busy");
+  btnTimeToHatch.classList.remove(
+    "btn-time-to-hatch--hatching",
+    "btn-time-to-hatch--hatching-reduced"
+  );
+  btnTimeToHatch.textContent = HATCH_BTN_DEFAULT;
+  syncFindFriendButton();
+}
+
+window.addEventListener("pageshow", (ev) => {
+  if (ev.persisted) resetTimeToHatchButton();
+});
+
+/**
+ * `showModal()` throws if another modal `<dialog>` is still open. Close others first, then open or fall back to `confirm`.
+ * @returns {boolean} true if the custom dialog is showing (wait for Proceed / Go back); false if we used confirm / nothing to show
+ */
+function openFindFriendWarningUi() {
+  captionIntroDialog?.close();
+  careDialog?.close();
+  const dlg =
+    findFriendWarningDialog ||
+    document.getElementById("find-friend-warning-dialog");
+  if (dlg && typeof dlg.showModal === "function") {
+    try {
+      dlg.showModal();
+      return true;
+    } catch (e) {
+      console.warn("[find-friend warning]", e);
+    }
+  }
+  return false;
+}
 
 /**
  * Shows the personality blurb (same as under the portrait) in a modal; click anywhere (panel or padding) closes it.
@@ -389,19 +443,35 @@ const HATCH_NAV_DELAY_REDUCED_MS = 140;
 function goToCreatorPage() {
   const payload = buildCreatorSessionPayload();
   if (!payload?.creatureType?.trim()) return;
+
+  try {
+    sessionStorage.setItem(CREATOR_SESSION_KEY, JSON.stringify(payload));
+  } catch (e) {
+    if (isSessionStorageQuotaError(e)) {
+      try {
+        sessionStorage.removeItem(HATCHERY_RESTORE_KEY);
+        sessionStorage.setItem(CREATOR_SESSION_KEY, JSON.stringify(payload));
+      } catch (e2) {
+        console.error(e2);
+        alert(
+          "Your browser storage is full, so the creator could not be opened. Try closing other tabs or clearing site data for this page, then try again."
+        );
+        return;
+      }
+    } else {
+      console.error(e);
+      alert("Could not save your hatchling data. Try again.");
+      return;
+    }
+  }
+
   try {
     const snap = buildHatcheryRestorePayload();
     if (snap) {
       sessionStorage.setItem(HATCHERY_RESTORE_KEY, JSON.stringify(snap));
     }
   } catch (e) {
-    console.warn("Could not save hatchery restore snapshot", e);
-  }
-  try {
-    sessionStorage.setItem(CREATOR_SESSION_KEY, JSON.stringify(payload));
-  } catch (e) {
-    console.error(e);
-    return;
+    console.warn("Could not save hatchery restore snapshot (return trip may be limited)", e);
   }
 
   const btn = btnTimeToHatch;
@@ -1029,29 +1099,46 @@ btnNewAbomination.addEventListener("click", () =>
   goToCreateForm({ resetForm: true })
 );
 
-if (btnFindFriend) {
-  btnFindFriend.addEventListener("click", async () => {
-    if (!careSession?.creatureType?.trim()) return;
-    const body = {
-      name: "",
-      creatureType: careSession.creatureType,
-      favouriteFood: careSession.favouriteFood,
-      biggestFear: careSession.biggestFear,
-      friendOfDisplayName: careSession.displayName,
-      gender: "",
-      colours: "",
-      favouriteSong: "",
-      placeOfBirth: "",
-      myersBriggs: "",
-      sillyProp: "",
-      highSchool: "",
-    };
-    await runCharacterGenerate(body, {
-      loadingMessage: FRIEND_WORKING_MSG,
-      previousProfile: careSession?.profile,
-    });
+async function runFindFriendGenerate() {
+  if (!careSession?.creatureType?.trim()) return;
+  const body = {
+    name: "",
+    creatureType: careSession.creatureType,
+    favouriteFood: careSession.favouriteFood,
+    biggestFear: careSession.biggestFear,
+    friendOfDisplayName: careSession.displayName,
+    gender: "",
+    colours: "",
+    favouriteSong: "",
+    placeOfBirth: "",
+    myersBriggs: "",
+    sillyProp: "",
+    highSchool: "",
+  };
+  await runCharacterGenerate(body, {
+    loadingMessage: FRIEND_WORKING_MSG,
+    previousProfile: careSession?.profile,
   });
 }
+
+if (btnFindFriend) {
+  btnFindFriend.addEventListener("click", () => {
+    if (!careSession?.creatureType?.trim()) return;
+    if (openFindFriendWarningUi()) return;
+    if (window.confirm(FIND_FRIEND_CONFIRM_FALLBACK)) {
+      void runFindFriendGenerate();
+    }
+  });
+}
+
+findFriendWarningBack?.addEventListener("click", () => {
+  findFriendWarningDialog?.close();
+});
+
+findFriendWarningProceed?.addEventListener("click", () => {
+  findFriendWarningDialog?.close();
+  void runFindFriendGenerate();
+});
 
 if (btnTimeToHatch) {
   btnTimeToHatch.addEventListener("click", () => goToCreatorPage());

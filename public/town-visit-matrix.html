@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Town visit props — Admin — Tomagoatse</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/admin.css" />
+  </head>
+  <body class="admin-body">
+    <div class="bg-noise" aria-hidden="true"></div>
+    <main class="shell admin-shell">
+      <header class="admin-header">
+        <p class="hero-kicker">Operator</p>
+        <h1>Town visit prop matrix</h1>
+        <p class="admin-lead">
+          Scenic props that can appear in side-scrolling town visit. Same admin secret as other operator
+          tools.
+        </p>
+        <nav class="admin-nav">
+          <a class="btn-secondary" href="/admin.html">Admin</a>
+          <a class="btn-secondary" href="/towns.html">Towns</a>
+          <a class="btn-secondary" href="/">Hatchery</a>
+        </nav>
+      </header>
+
+      <section class="card admin-gate" id="matrix-gate">
+        <label class="admin-secret-label" for="matrix-secret-input">Admin secret</label>
+        <div class="admin-secret-row">
+          <input
+            id="matrix-secret-input"
+            type="password"
+            autocomplete="off"
+            class="admin-secret-input"
+            placeholder="Paste the value from ADMIN_SECRET"
+          />
+          <button type="button" class="btn-primary" id="matrix-load-btn">Load matrix</button>
+        </div>
+        <p id="matrix-error" class="admin-error" hidden></p>
+      </section>
+
+      <section class="admin-results card" id="matrix-results" hidden>
+        <p class="admin-lead">
+          Each town lists props in <strong>category</strong> order (theme matrix), then <strong>glyph</strong> and
+          <strong>label</strong>. A visit run still picks randomly along the strip.
+        </p>
+        <div id="matrix-towns-root" class="town-matrix-root"></div>
+      </section>
+    </main>
+    <script type="module" src="/town-visit-matrix.js"></script>
+  </body>
+</html>

@@ -1,3 +1,7 @@
+import { slugForTownName } from "./town-slugs.js";
+import { houseFromPayload } from "./house-schema.js";
+import { renderHouseSvg } from "./house-render.js";
+
 const BOOTSTRAP_CREATOR_KEY = "tomagoatse-bootstrap-creator";
 
 const DYNAMIC_KEYS = [
@@ -545,6 +549,68 @@ function fillTownSelect(selectEl) {
   }
 }
 
+async function refreshHousePreview(row, isOwner) {
+  const host = document.getElementById("my-house-svg-host");
+  const fallback = document.getElementById("my-house-preview-fallback");
+  const label = document.getElementById("my-house-town-label");
+  const link = document.getElementById("my-house-preview-link");
+  const editBtn = document.getElementById("my-house-edit-btn");
+  const actions = document.getElementById("my-house-actions");
+  if (!host || !row) return;
+  const townName = row.town || TOWN_OPTIONS[0];
+  if (label) label.textContent = townName;
+  const slug = slugForTownName(townName);
+  if (!slug) {
+    if (fallback) {
+      fallback.hidden = false;
+    }
+    host.innerHTML = "";
+    return;
+  }
+  try {
+    const res = await fetch(`/api/town-scenes/${encodeURIComponent(slug)}`);
+    if (!res.ok) throw new Error("scene");
+    const scene = await res.json();
+    const house = houseFromPayload(row.payload);
+    host.innerHTML = renderHouseSvg(house, scene);
+    if (fallback) fallback.hidden = true;
+  } catch (e) {
+    console.error(e);
+    if (fallback) fallback.hidden = false;
+    host.innerHTML = "";
+  }
+  const editUrl = `/house-edit.html?id=${encodeURIComponent(row.id)}`;
+  if (isOwner) {
+    link.href = editUrl;
+    link.classList.remove("my-house-preview-readonly");
+    link.setAttribute("aria-label", "Edit house");
+    if (editBtn) editBtn.href = editUrl;
+    if (actions) actions.hidden = false;
+  } else {
+    link.removeAttribute("href");
+    link.classList.add("my-house-preview-readonly");
+    link.setAttribute("aria-label", "House preview");
+    if (actions) actions.hidden = true;
+  }
+}
+
+function wireTownTripButtons(creatureId) {
+  const host = document.getElementById("my-town-trips");
+  if (!host || !creatureId) return;
+  host.innerHTML = "";
+  for (const name of TOWN_OPTIONS) {
+    const slug = slugForTownName(name);
+    if (!slug) continue;
+    const a = document.createElement("a");
+    a.className = "btn-secondary my-town-trip-btn";
+    a.href = `/town-visit.html?creature=${encodeURIComponent(creatureId)}&town=${encodeURIComponent(slug)}`;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    a.textContent = `Take a trip to ${name}`;
+    host.appendChild(a);
+  }
+}
+
 function wireTownEditor(creatureId, rowTown, onTownSaved) {
   const selectEl = document.getElementById("my-town");
   const statusEl = document.getElementById("my-town-status");
@@ -812,6 +878,30 @@ async function main() {
     townSection.hidden = !isOwner;
   }
 
+  const mazesSection = document.getElementById("my-mazes-section");
+  const mazesList = document.getElementById("my-mazes-list");
+  const mazesConLink = document.getElementById("my-mazes-consciousness-link");
+  if (mazesSection && mazesList && mazesConLink) {
+    const mazes = Array.isArray(payload?.consciousnessMazes)
+      ? payload.consciousnessMazes.filter((m) => m && m.name && m.id)
+      : [];
+    if (isOwner && mazes.length > 0) {
+      mazesSection.hidden = false;
+      mazesList.innerHTML = "";
+      for (const m of mazes) {
+        const li = document.createElement("li");
+        const a = document.createElement("a");
+        a.href = `/consciousness.html?id=${encodeURIComponent(row.id)}&maze=${encodeURIComponent(m.id)}`;
+        a.textContent = m.name;
+        li.appendChild(a);
+        mazesList.appendChild(li);
+      }
+      mazesConLink.href = `/consciousness.html?id=${encodeURIComponent(row.id)}`;
+    } else {
+      mazesSection.hidden = true;
+    }
+  }
+
   myPageContext = { creatureId: row.id, town: row.town };
 
   const frAutoWrap = document.getElementById("my-fr-auto-wrap");
@@ -881,8 +971,11 @@ async function main() {
   if (isOwner) {
     loadFriendsPanel(row.id);
     loadFriendRequestsPanel(row.id);
+    wireTownTripButtons(row.id);
     wireTownEditor(row.id, row.town, (newTown) => {
+      row.town = newTown;
       myPageContext.town = newTown;
+      refreshHousePreview(row, isOwner);
       loadTownmates(row.id, newTown, true);
       loadFriendsPanel(row.id);
       loadFriendRequestsPanel(row.id);
@@ -913,6 +1006,8 @@ async function main() {
     iframeWrap.hidden = true;
     if (iframe) iframe.removeAttribute("src");
   }
+
+  refreshHousePreview(row, isOwner).catch((e) => console.error(e));
 
   content.hidden = false;
 

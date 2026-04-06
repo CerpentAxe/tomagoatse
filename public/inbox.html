@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Portal inbox — Tomagoatse</title>
+    <link rel="stylesheet" href="/inbox.css" />
+  </head>
+  <body>
+    <nav class="inbox-nav" aria-label="Site">
+      <a href="/dashboard.html">← Dashboard</a>
+      <a href="/">Hatchery</a>
+      <a href="/settings.html">Settings</a>
+    </nav>
+
+    <h1 class="inbox-title">Portal inbox</h1>
+    <p class="inbox-lead">
+      Text-only list of your hatchlings and portal chats with friends. Opens the full portal when you follow a link.
+    </p>
+
+    <p id="inbox-loading" class="inbox-loading">Loading…</p>
+    <p id="inbox-error" class="inbox-error" hidden></p>
+    <p id="inbox-unread-banner" class="inbox-banner" role="status" hidden></p>
+
+    <div id="inbox-main"></div>
+
+    <script src="/inbox.js" defer></script>
+  </body>
+</html>

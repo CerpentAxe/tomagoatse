@@ -128,8 +128,8 @@ const BACK_POS_OPTS = ["upper", "mid", "lower"];
 const BACK_SIZE_OPTS = ["small", "medium", "large"];
 
 /**
- * Five coordinated palettes for body, limbs, eyes, antennae, ears, back, tail.
- * (Hair / nose meshes use fixed mesh tints; palette covers all spec-driven colours.)
+ * Five coordinated palettes for body, limbs, eyes, antennae, ears, back, tail, hair.
+ * (Nose meshes still use fixed tints; hair colour is spec-driven.)
  */
 const CREATOR_COLOUR_PALETTES = [
   {
@@ -256,6 +256,7 @@ function applyCreatorPaletteToSpec(spec, paletteId) {
   spec.head.ears.colour = p.earsColour;
   spec.backAttachment.colour = p.backColour;
   spec.tail.colour = p.tailColour;
+  spec.hairColour = p.hairColour != null ? p.hairColour : p.armsColour;
 }
 
 function buildCreatorPaletteSelectHtml(spec) {
@@ -583,6 +584,13 @@ function ensureSpecShape(s) {
   s.bodyWidth = clampFloat(s.bodyWidth, BODY_PROP_MIN, BODY_PROP_MAX, 1);
   s.bodyHeight = clampFloat(s.bodyHeight, BODY_PROP_MIN, BODY_PROP_MAX, 1);
   s.bodyLength = clampFloat(s.bodyLength, BODY_PROP_MIN, BODY_PROP_MAX, 1);
+  if (
+    !s.hairColour ||
+    typeof s.hairColour !== "string" ||
+    !String(s.hairColour).trim()
+  ) {
+    s.hairColour = "#553322";
+  }
   s.backAttachment = s.backAttachment || {
     size: "medium",
     visualScale: 1,
@@ -606,7 +614,7 @@ function ensureSpecShape(s) {
 
 /**
  * Silhouette defaults for certain body plans (also applied when the plan changes in the UI).
- * Quadruped: longer, lower body; Humanoid: narrow, tall, long; Avian: wings instead of paws; Aquatic: no legs (see legCountForPlan), longer body, dorsal fin, fins.
+ * Quadruped: longer, lower body; Humanoid: narrow, tall, long, two arms, no back/tail; Avian: wings instead of paws; Aquatic: no legs (see legCountForPlan), longer body, dorsal fin, fins.
  */
 function applyBodyPlanDefaults(spec) {
   if (!spec) return;
@@ -622,6 +630,11 @@ function applyBodyPlanDefaults(spec) {
       spec.bodyWidth = 0.82;
       spec.bodyHeight = 1.18;
       spec.bodyLength = 1.14;
+      spec.arms.count = 2;
+      spec.arms.type = "paws";
+      spec.backAttachment.type = "none";
+      spec.tail.type = "none";
+      spec.tail.count = 0;
       break;
     case "Avian/Flying":
       spec.arms.type = "wings";
@@ -722,6 +735,10 @@ function buildSpecPanelHTML(spec, session) {
       <div class="creator-field-row">
         <label for="design-haircut">Haircut</label>
         <select id="design-haircut">${optionListHtml(HAIRCUT_OPTS, sh)}</select>
+      </div>
+      <div class="creator-field-row">
+        <label for="design-hair-colour">Hair colour</label>
+        <input type="color" id="design-hair-colour" value="${hexForColorInput(spec.hairColour)}" />
       </div>
       <div class="creator-field-row">
         <label for="design-body-colour">Body colour</label>
@@ -943,6 +960,9 @@ function pullDesignFromPanelInto(spec) {
   spec.bodyPlan = document.getElementById("design-bodyPlan")?.value || spec.bodyPlan;
   spec.gender = document.getElementById("design-gender")?.value || spec.gender;
   spec.haircut = document.getElementById("design-haircut")?.value || spec.haircut;
+  spec.hairColour = hexForColorInput(
+    document.getElementById("design-hair-colour")?.value
+  );
   spec.bodyColour = hexForColorInput(
     document.getElementById("design-body-colour")?.value
   );
@@ -1502,21 +1522,101 @@ function addHair(headGroup, spec, headRadius = 0.38) {
   const s = R / 0.38;
   const style = spec?.haircut || "Layered";
   if (style === "Bald") return;
-  const hairMat = mkMat("#553322", 0.92);
+  const hairMat = mkMat(hexForColorInput(spec?.hairColour || "#553322"), 0.92);
   const topY = 0.48 * s;
-  if (style === "Mohawk" || style === "Spiky") {
+  if (style === "Mohawk") {
     for (let i = 0; i < 5; i++) {
       const cg = new THREE.ConeGeometry(0.06 * s, 0.28 * s, 4);
       const cm = new THREE.Mesh(cg, hairMat);
       cm.position.set((-0.16 + i * 0.08) * s, topY + 0.1 * s, 0);
       headGroup.add(cm);
     }
-  } else if (style === "Afro/fluffy" || style === "Curly") {
+  } else if (style === "Spiky") {
+    const n = 8;
+    for (let i = 0; i < n; i++) {
+      const ang = (i / n) * Math.PI * 2;
+      const rx = Math.cos(ang) * 0.2 * s;
+      const rz = Math.sin(ang) * 0.17 * s;
+      const cg = new THREE.ConeGeometry(0.055 * s, 0.26 * s, 4);
+      const cm = new THREE.Mesh(cg, hairMat);
+      cm.position.set(rx, topY + 0.09 * s, rz);
+      cm.rotation.z = -Math.cos(ang) * 0.4;
+      cm.rotation.x = Math.sin(ang) * 0.28;
+      headGroup.add(cm);
+    }
+  } else if (style === "Curly") {
+    const nCurls = 20;
+    const shellR = 0.37 * s;
+    const curlBase = 0.056 * s;
+    const layers = 4;
+    const perRing = 5;
+    let k = 0;
+    for (let ring = 0; ring < layers; ring++) {
+      const ly = 0.88 - ring * 0.2;
+      const ringR = Math.sqrt(Math.max(0, 1 - ly * ly)) * shellR;
+      const y = topY - 0.04 * s + ly * 0.38 * s;
+      const phase = ring * 0.62;
+      for (let j = 0; j < perRing; j++) {
+        const ang = phase + (j / perRing) * Math.PI * 2;
+        const x = Math.cos(ang) * ringR;
+        const z = Math.sin(ang) * ringR;
+        const g = new THREE.IcosahedronGeometry(
+          curlBase * (0.88 + (k % 5) * 0.04),
+          0
+        );
+        const m = new THREE.Mesh(g, hairMat);
+        m.position.set(x, y, z);
+        m.rotation.set(k * 0.41, k * 0.67, k * 0.29);
+        headGroup.add(m);
+        k++;
+      }
+    }
+  } else if (style === "Afro/fluffy") {
     const ag = new THREE.IcosahedronGeometry(0.35 * s, 0);
     const am = new THREE.Mesh(ag, hairMat);
     am.position.set(0, topY + 0.12 * s, 0);
     headGroup.add(am);
-  } else if (style === "Long and flowing" || style === "Braided") {
+  } else if (style === "Long and flowing") {
+    const cap = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(0.4 * s, 0),
+      hairMat
+    );
+    cap.position.set(0, topY + 0.03 * s, 0);
+    cap.scale.set(1.1, 0.36, 1.08);
+    headGroup.add(cap);
+
+    const strandH = 0.98 * s;
+    const rTip = 0.05 * s;
+    const locks = 8;
+    for (let i = 0; i < locks; i++) {
+      const u = locks > 1 ? i / (locks - 1) : 0.5;
+      const angle = (u - 0.5) * 2.15;
+      const bx = Math.sin(angle) * 0.4 * s;
+      const bz = -0.2 * s - Math.cos(angle) * 0.22 * s;
+      const cg = new THREE.ConeGeometry(rTip * 1.15, strandH, 5);
+      const m = new THREE.Mesh(cg, hairMat);
+      const ay = topY - 0.06 * s;
+      m.position.set(bx, ay - strandH * 0.18, bz);
+      m.rotation.order = "YXZ";
+      m.rotation.x = Math.PI * 0.58 + Math.abs(Math.sin(angle)) * 0.12;
+      m.rotation.y = -angle * 0.62;
+      m.rotation.z = Math.sin(angle) * 0.35;
+      headGroup.add(m);
+    }
+
+    const sideH = 0.82 * s;
+    const sideR = 0.042 * s;
+    for (const side of [-1, 1]) {
+      const sg = new THREE.ConeGeometry(sideR * 1.1, sideH, 5);
+      const sm = new THREE.Mesh(sg, hairMat);
+      sm.position.set(side * 0.36 * s, topY - 0.12 * s, 0.08 * s);
+      sm.rotation.order = "YXZ";
+      sm.rotation.x = Math.PI * 0.48;
+      sm.rotation.y = side * 0.55;
+      sm.rotation.z = side * 0.75;
+      headGroup.add(sm);
+    }
+  } else if (style === "Braided") {
     for (let i = 0; i < 3; i++) {
       const bg = new THREE.ConeGeometry(0.07 * s, 0.5 * s, 4);
       const bm = new THREE.Mesh(bg, hairMat);
@@ -2654,6 +2754,9 @@ async function main() {
     specPanel.addEventListener("input", (e) => {
       const id = e.target?.id || "";
       if (id === "ctx-colourPalette") return;
+      // `<select>` fires both `input` and `change`; only handle `change` so we don’t run handlers twice.
+      if (e.target?.tagName === "SELECT" && (id.startsWith("design-") || id.startsWith("ctx-")))
+        return;
       if (id.startsWith("ctx-")) applyContextFromPanel();
       else if (id.startsWith("design-")) {
         if (id.includes("-colour")) delete workingSpec.colourPaletteId;
@@ -2753,13 +2856,4 @@ async function main() {
   });
 }
 
-main().catch((e) => {
-  console.error(e);
-  const errBox = document.getElementById("creator-error");
-  const errMsg = document.getElementById("creator-error-msg");
-  if (errBox && errMsg) {
-    errBox.hidden = false;
-    errMsg.textContent =
-      e?.message || "Something went wrong loading the character creator.";
-  }
-});
+export { createCreatureGroup, ensureSpecShape, applyBodyPlanDefaults, main };

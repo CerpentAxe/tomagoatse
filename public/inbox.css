@@ -1,0 +1,182 @@
+/* Minimal styles — system fonts, no webfonts, small layout for low bandwidth. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0.75rem 1rem 2rem;
+  font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: #1a2230;
+  background: #f4f6f9;
+}
+
+a {
+  color: #0d6b5c;
+}
+
+a:focus-visible {
+  outline: 2px solid #0d6b5c;
+  outline-offset: 2px;
+}
+
+.inbox-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #c5cdd8;
+}
+
+.inbox-nav a {
+  font-size: 0.88rem;
+}
+
+.inbox-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.inbox-lead {
+  margin: 0 0 1rem;
+  font-size: 0.88rem;
+  color: #4a5568;
+}
+
+.inbox-banner {
+  margin: 0 0 1rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 6px;
+  background: #e8f5f1;
+  border: 1px solid #9dcbbf;
+  font-size: 0.88rem;
+}
+
+.inbox-banner[hidden] {
+  display: none !important;
+}
+
+.inbox-error {
+  padding: 0.75rem;
+  background: #fde8e8;
+  border: 1px solid #e8a4a4;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+}
+
+.inbox-error[hidden] {
+  display: none !important;
+}
+
+.inbox-loading[hidden] {
+  display: none !important;
+}
+
+.inbox-creature {
+  margin: 0 0 1.25rem;
+  padding: 0.65rem 0.75rem;
+  background: #fff;
+  border: 1px solid #d8dee6;
+  border-radius: 8px;
+}
+
+.inbox-creature-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  margin-bottom: 0.5rem;
+}
+
+.inbox-avatar {
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 6px;
+  background: #c5d4e8;
+  color: #2a3a50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.inbox-creature-name {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.inbox-creature-meta {
+  margin: 0.15rem 0 0;
+  font-size: 0.78rem;
+  color: #5a6578;
+}
+
+.inbox-thread-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.inbox-thread {
+  margin: 0;
+  padding: 0.45rem 0;
+  border-top: 1px solid #e8ecf0;
+}
+
+.inbox-thread:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+.inbox-thread a {
+  display: block;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.inbox-thread a:hover {
+  text-decoration: underline;
+}
+
+.inbox-thread-preview {
+  margin: 0.2rem 0 0;
+  font-size: 0.82rem;
+  color: #5a6578;
+  font-weight: 400;
+}
+
+.inbox-badge {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #fff;
+  background: #0d6b5c;
+  border-radius: 4px;
+}
+
+.inbox-empty {
+  margin: 0;
+  color: #5a6578;
+  font-size: 0.88rem;
+}
+
+.inbox-empty-creatures {
+  padding: 1rem;
+  background: #fff;
+  border: 1px dashed #c5cdd8;
+  border-radius: 8px;
+  text-align: center;
+}

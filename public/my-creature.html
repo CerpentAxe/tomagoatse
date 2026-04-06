@@ -112,6 +112,52 @@
             ></select>
           </label>
           <p id="my-town-status" class="my-town-status" role="status" aria-live="polite"></p>
+          <div id="my-town-trips" class="my-town-trips" aria-label="Visit towns"></div>
+        </section>
+
+        <section
+          class="card my-creature-house-section"
+          aria-labelledby="my-house-heading"
+        >
+          <h2 id="my-house-heading">House</h2>
+          <p class="my-creature-house-lead">
+            Colours follow your <strong>current town</strong>
+            (<span id="my-house-town-label">—</span>). Tweak the layout below — or later.
+          </p>
+          <div class="my-house-preview-card">
+            <a
+              id="my-house-preview-link"
+              class="my-house-preview-link"
+              href="#"
+              aria-label="Edit house"
+            >
+              <span id="my-house-svg-host" class="my-house-svg-host"></span>
+            </a>
+            <p id="my-house-preview-fallback" class="my-house-preview-fallback" hidden>
+              Preview unavailable.
+            </p>
+          </div>
+          <p class="my-house-actions" id="my-house-actions">
+            <a id="my-house-edit-btn" class="btn-secondary" href="#">Edit House</a>
+          </p>
+        </section>
+
+        <section
+          class="card my-creature-mazes-section"
+          id="my-mazes-section"
+          aria-labelledby="my-mazes-heading"
+          hidden
+        >
+          <h2 id="my-mazes-heading">Consciousness mazes</h2>
+          <p class="my-mazes-lead">
+            Mazes you created for this hatchling are listed here. Open one in Consciousness to explore it in 3D.
+          </p>
+          <ul id="my-mazes-list" class="my-mazes-list"></ul>
+          <p class="my-mazes-foot">
+            <a class="btn-secondary" id="my-mazes-consciousness-link" href="/consciousness.html"
+              >Open consciousness</a
+            >
+          </p>
         </section>
 
         <section

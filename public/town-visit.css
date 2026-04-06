@@ -1,0 +1,555 @@
+/* Side-scrolling town visit — layers + character */
+
+.tv-body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #1a1410;
+  color: #e8dcc8;
+  font-family: system-ui, "Segoe UI", sans-serif;
+}
+
+.tv-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: rgba(0, 0, 0, 0.35);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tv-back {
+  flex-shrink: 0;
+  margin-top: 0.2rem;
+}
+
+.tv-header-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.tv-h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.tv-tagline {
+  margin: 0.25rem 0 0;
+  font-size: 0.9rem;
+  opacity: 0.9;
+  line-height: 1.35;
+}
+
+.tv-caption {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  opacity: 0.75;
+  max-width: 42rem;
+}
+
+.tv-error {
+  margin: 1rem;
+  padding: 0.75rem 1rem;
+  background: rgba(120, 40, 40, 0.35);
+  border-radius: 8px;
+  color: #f0c0c0;
+}
+
+.tv-stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: calc(100vh - 120px);
+  min-height: 320px;
+  overflow: hidden;
+}
+
+.tv-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(12, 10, 8, 0.82);
+  backdrop-filter: blur(6px);
+  pointer-events: all;
+}
+
+.tv-loading[hidden] {
+  display: none !important;
+}
+
+.tv-loading-inner {
+  text-align: center;
+  padding: 1.5rem 1.75rem;
+  max-width: 20rem;
+}
+
+.tv-loading-title {
+  margin: 1rem 0 0.35rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: #f0e6d8;
+}
+
+.tv-loading-sub {
+  margin: 0;
+  font-size: 0.88rem;
+  opacity: 0.72;
+  line-height: 1.4;
+}
+
+.tv-loading-spinner {
+  width: 44px;
+  height: 44px;
+  margin: 0 auto;
+  border: 3px solid rgba(201, 166, 107, 0.2);
+  border-top-color: rgba(201, 166, 107, 0.95);
+  border-radius: 50%;
+  animation: tv-spin 0.75s linear infinite;
+}
+
+@keyframes tv-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Camera: world slides; character stays centered in this box */
+.tv-playfield {
+  --tv-walk-bottom: max(10%, 72px);
+  position: relative;
+  flex: 1;
+  min-height: 280px;
+  overflow: hidden;
+  outline: none;
+}
+
+.tv-playfield:focus-visible {
+  box-shadow: inset 0 0 0 2px rgba(201, 166, 107, 0.45);
+}
+
+.tv-world {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 450vw;
+  min-width: 2400px;
+  height: 100%;
+  min-height: 280px;
+  will-change: transform;
+}
+
+.tv-sky {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(180deg, #2a1810 0%, #6b4c3a 100%);
+}
+
+.tv-sun {
+  position: absolute;
+  top: 8%;
+  right: 12%;
+  width: min(18vw, 120px);
+  height: min(18vw, 120px);
+  border-radius: 50%;
+  z-index: 1;
+  opacity: 0.55;
+  filter: blur(1px);
+  box-shadow: 0 0 40px rgba(255, 200, 120, 0.35);
+}
+
+.tv-layers {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.tv-layer {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  will-change: transform;
+}
+
+.tv-fog {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  opacity: 0.65;
+  mix-blend-mode: soft-light;
+}
+
+.tv-ground-strip {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 22%;
+  z-index: 6;
+  background: linear-gradient(180deg, transparent 0%, #2a1810 40%);
+  border-top: 3px solid #4a3224;
+  pointer-events: none;
+}
+
+/*
+ * No z-index on this wrapper — otherwise it forms a stacking context and every
+ * house paints as one layer, so the character (z-index 20) can never sit in front.
+ * Each .tv-neighbor-house sets its own z-index vs .tv-character (see town-visit.js).
+ */
+.tv-neighbor-houses {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+
+/* Same floor line as .tv-character — only the walk band below the horizon */
+.tv-neighbor-house {
+  position: absolute;
+  bottom: var(--tv-walk-bottom);
+  width: 168px;
+  max-width: 32vw;
+  z-index: 12;
+  will-change: transform;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
+}
+
+.tv-neighbor-house-label {
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  transform: translateX(-50%);
+  margin-bottom: 6px;
+  text-align: center;
+  pointer-events: none;
+  max-width: min(220px, 42vw);
+  z-index: 1;
+}
+
+.tv-neighbor-house-name {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.96);
+  text-shadow:
+    0 0 8px rgba(0, 0, 0, 0.65),
+    0 1px 2px rgba(0, 0, 0, 0.85);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tv-neighbor-house-friends {
+  margin-top: 3px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--tv-accent, #c9a66b);
+  text-shadow:
+    0 0 6px rgba(0, 0, 0, 0.55),
+    0 1px 2px rgba(0, 0, 0, 0.75);
+}
+
+.tv-neighbor-house-friends[hidden] {
+  display: none !important;
+}
+
+.tv-neighbor-house-svg {
+  line-height: 0;
+}
+
+.tv-neighbor-house-svg svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Scenic props (above ground strip, below particles) */
+.tv-visit-items {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.tv-visit-item {
+  position: absolute;
+  line-height: 1;
+  user-select: none;
+  will-change: transform;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.4));
+}
+
+.tv-visit-item-glyph {
+  display: inline-block;
+}
+
+.tv-lowpoly-glyph svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Particles overlay */
+.tv-particles {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.tv-particle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  opacity: 0.6;
+  animation: tv-float 8s linear infinite;
+}
+
+@keyframes tv-float {
+  0% {
+    transform: translate(0, 0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.7;
+  }
+  100% {
+    transform: translate(-30px, 100vh);
+    opacity: 0;
+  }
+}
+
+.tv-particle--ember {
+  background: #ff9a4a;
+  box-shadow: 0 0 6px #ff6a20;
+}
+
+.tv-particle--drip {
+  width: 3px;
+  height: 10px;
+  border-radius: 2px;
+  background: rgba(140, 160, 200, 0.6);
+  animation: tv-drip 4s ease-in infinite;
+}
+
+@keyframes tv-drip {
+  0% {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(100vh);
+    opacity: 0;
+  }
+}
+
+.tv-particle--spark {
+  background: #c45c4a;
+  animation: tv-spark 2.5s linear infinite;
+}
+
+@keyframes tv-spark {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.tv-particle--fly {
+  background: #8f8;
+  box-shadow: 0 0 8px #6c6;
+  animation: tv-fly 6s ease-in-out infinite;
+}
+
+@keyframes tv-fly {
+  0% {
+    transform: translate(0, 0);
+    opacity: 0;
+  }
+  30% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(80px, -40px);
+    opacity: 0;
+  }
+}
+
+.tv-character {
+  position: absolute;
+  left: 0;
+  bottom: var(--tv-walk-bottom);
+  transform: translateX(-50%);
+  z-index: 20;
+  text-align: center;
+  pointer-events: none;
+}
+
+.tv-character-shadow {
+  width: min(36vw, 100px);
+  height: 14px;
+  margin: 0 auto -6px;
+  background: radial-gradient(ellipse, rgba(0, 0, 0, 0.45) 0%, transparent 70%);
+  border-radius: 50%;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.tv-char-sprite {
+  display: inline-block;
+  transform-origin: center bottom;
+  transition: transform 0.06s ease-out;
+}
+
+.tv-char-bob {
+  display: inline-block;
+  transform-origin: center bottom;
+}
+
+.tv-char-bob-visual {
+  display: inline-block;
+  transform-origin: center bottom;
+  transition: transform 0.08s ease-out;
+}
+
+.tv-char-bob--walk {
+  animation: tv-bob 0.45s ease-in-out infinite;
+}
+
+.tv-char-sprite--crouch .tv-char-bob-visual {
+  transform: scaleY(0.78);
+}
+
+.tv-char-sprite--face-left .tv-char-bob-visual {
+  transform: scaleX(-1);
+}
+
+.tv-char-sprite--face-left.tv-char-sprite--crouch .tv-char-bob-visual {
+  transform: scale(-1, 0.78);
+}
+
+.tv-char-3d-host {
+  display: block;
+  width: min(36vw, 180px);
+  height: min(36vw, 180px);
+  overflow: hidden;
+}
+
+.tv-char-3d-host canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+@keyframes tv-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.tv-hint {
+  flex-shrink: 0;
+  padding: 0.35rem 0.75rem 0.6rem;
+  margin: 0;
+  font-size: 0.72rem;
+  opacity: 0.65;
+  text-align: center;
+  line-height: 1.45;
+  pointer-events: none;
+}
+
+.tv-hint kbd {
+  font-size: 0.7rem;
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.tv-neighbor-prompt {
+  position: absolute;
+  left: 50%;
+  bottom: 0.5rem;
+  transform: translateX(-50%);
+  z-index: 35;
+  min-width: min(22rem, calc(100% - 1.5rem));
+  max-width: calc(100% - 1rem);
+  padding: 0.65rem 0.85rem 0.75rem;
+  border-radius: 10px;
+  background: rgba(12, 10, 8, 0.88);
+  border: 1px solid rgba(201, 166, 107, 0.35);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+  pointer-events: auto;
+}
+
+.tv-neighbor-prompt[hidden] {
+  display: none !important;
+}
+
+.tv-neighbor-prompt-name {
+  margin: 0 0 0.5rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  text-align: center;
+  color: #f0e6d8;
+}
+
+.tv-neighbor-prompt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: center;
+  align-items: center;
+}
+
+.tv-neighbor-prompt-note {
+  margin: 0;
+  font-size: 0.82rem;
+  opacity: 0.85;
+}
+
+.tv-neighbor-portal-link {
+  text-decoration: none;
+  text-align: center;
+  font: inherit;
+  cursor: pointer;
+}
+
+.tv-neighbor-prompt-status {
+  margin: 0.45rem 0 0;
+  min-height: 1.1rem;
+  font-size: 0.8rem;
+  text-align: center;
+  color: rgba(180, 220, 200, 0.95);
+}
+
+@media (max-width: 600px) {
+  .tv-stage {
+    height: calc(100vh - 140px);
+  }
+}

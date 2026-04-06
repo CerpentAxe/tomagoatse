@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Towns — Admin — Tomagoatse</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/admin.css" />
+  </head>
+  <body class="admin-body">
+    <div class="bg-noise" aria-hidden="true"></div>
+    <main class="shell admin-shell">
+      <header class="admin-header">
+        <p class="hero-kicker">Operator</p>
+        <h1>Town scenes</h1>
+        <p class="admin-lead">
+          Edit side-scrolling visit backgrounds (defaults + overrides in
+          <code>server/data/town-scenes-overrides.json</code>). Requires <code>ADMIN_SECRET</code>.
+        </p>
+        <nav class="admin-nav">
+          <a class="btn-secondary" href="/admin.html">Admin</a>
+          <a class="btn-secondary" href="/town-visit-matrix.html">Visit prop matrix</a>
+          <a class="btn-secondary" href="/">Hatchery</a>
+        </nav>
+      </header>
+
+      <section class="card admin-gate" id="towns-gate">
+        <label class="admin-secret-label" for="towns-secret-input">Admin secret</label>
+        <div class="admin-secret-row">
+          <input
+            id="towns-secret-input"
+            type="password"
+            autocomplete="off"
+            class="admin-secret-input"
+            placeholder="Paste the value from ADMIN_SECRET"
+          />
+          <button type="button" class="btn-primary" id="towns-load-btn">Load towns</button>
+        </div>
+        <p id="towns-error" class="admin-error" hidden></p>
+      </section>
+
+      <section class="admin-results card" id="towns-results" hidden>
+        <ul id="towns-list" class="towns-admin-list"></ul>
+      </section>
+    </main>
+    <script src="/towns.js" defer></script>
+  </body>
+</html>

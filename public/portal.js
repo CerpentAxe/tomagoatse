@@ -55,6 +55,9 @@ async function main() {
   const params = new URLSearchParams(window.location.search);
   const selfId = params.get("self");
   const peerId = params.get("peer");
+  if (params.get("popup") === "1") {
+    document.body.classList.add("portal-shell--popup");
+  }
   if (!selfId || !peerId) {
     if (loadingEl) loadingEl.hidden = true;
     if (errEl) {

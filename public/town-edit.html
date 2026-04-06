@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Edit town — Tomagoatse</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/admin.css" />
+  </head>
+  <body class="admin-body">
+    <div class="bg-noise" aria-hidden="true"></div>
+    <main class="shell admin-shell">
+      <header class="admin-header">
+        <p class="hero-kicker">Operator</p>
+        <h1 id="town-edit-title">Edit town</h1>
+        <nav class="admin-nav">
+          <a class="btn-secondary" href="/towns.html">All towns</a>
+          <a class="btn-secondary" href="/admin.html">Admin</a>
+        </nav>
+      </header>
+
+      <p id="town-edit-error" class="admin-error" hidden></p>
+
+      <section class="card admin-gate" id="town-edit-gate">
+        <label class="admin-secret-label" for="town-edit-secret">Admin secret</label>
+        <div class="admin-secret-row">
+          <input
+            id="town-edit-secret"
+            type="password"
+            autocomplete="off"
+            class="admin-secret-input"
+            placeholder="ADMIN_SECRET (stored in session after towns list)"
+          />
+        </div>
+      </section>
+
+      <form id="town-edit-form" class="town-edit-form card admin-results" hidden>
+        <div class="town-edit-field">
+          <label for="f-tagline">Tagline</label>
+          <input type="text" id="f-tagline" name="tagline" maxlength="500" />
+        </div>
+        <div class="town-edit-field">
+          <label for="f-caption">Caption / notes</label>
+          <textarea id="f-caption" name="caption" maxlength="800"></textarea>
+        </div>
+        <div class="town-edit-field">
+          <label for="f-skyTop">Sky (top)</label>
+          <input type="text" id="f-skyTop" name="skyTop" placeholder="#1e1210" />
+        </div>
+        <div class="town-edit-field">
+          <label for="f-skyBottom">Sky (bottom)</label>
+          <input type="text" id="f-skyBottom" name="skyBottom" />
+        </div>
+        <div class="town-edit-field">
+          <label for="f-fogColor">Fog overlay (rgba or hex)</label>
+          <input type="text" id="f-fogColor" name="fogColor" />
+        </div>
+        <div class="town-edit-field">
+          <label for="f-ground">Ground</label>
+          <input type="text" id="f-ground" name="ground" />
+        </div>
+        <div class="town-edit-field">
+          <label for="f-groundLine">Ground line</label>
+          <input type="text" id="f-groundLine" name="groundLine" />
+        </div>
+        <div class="town-edit-field">
+          <label for="f-accent">Accent</label>
+          <input type="text" id="f-accent" name="accent" />
+        </div>
+        <div class="town-edit-field town-edit-row">
+          <label><input type="checkbox" id="f-sun" name="sun" /> Show sun / moon disc</label>
+        </div>
+        <div class="town-edit-field">
+          <label for="f-sunColor">Sun / moon color</label>
+          <input type="text" id="f-sunColor" name="sunColor" />
+        </div>
+        <div class="town-edit-field">
+          <label for="f-particle">Particle style</label>
+          <select id="f-particle" name="particle">
+            <option value="embers">embers</option>
+            <option value="drips">drips</option>
+            <option value="sparks">sparks</option>
+            <option value="fireflies">fireflies</option>
+          </select>
+        </div>
+        <div class="town-edit-row">
+          <button type="submit" class="btn-primary" id="town-edit-save">Save</button>
+        </div>
+        <p class="admin-lead" style="margin: 0; font-size: 0.88rem">
+          Preview: open your creature’s page and use <strong>Take a trip to …</strong> in Current Town.
+        </p>
+        <p id="town-edit-status" class="my-town-status" role="status"></p>
+      </form>
+    </main>
+    <script src="/town-edit.js" defer></script>
+  </body>
+</html>

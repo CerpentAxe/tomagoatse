@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Town visit — Tomagoatse</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/town-visit.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body class="tv-body">
+    <header class="tv-header">
+      <a class="tv-back btn-secondary" id="tv-back" href="/dashboard.html">← Back</a>
+      <div class="tv-header-text">
+        <h1 class="tv-h1" id="tv-town-name">Town</h1>
+        <p class="tv-tagline" id="tv-town-tagline"></p>
+        <p class="tv-caption" id="tv-town-caption" hidden></p>
+      </div>
+    </header>
+
+    <p id="tv-error" class="tv-error" hidden></p>
+
+    <div id="tv-stage" class="tv-stage" hidden>
+      <div
+        id="tv-loading"
+        class="tv-loading"
+        hidden
+        role="status"
+        aria-live="polite"
+        aria-busy="true"
+      >
+        <div class="tv-loading-inner">
+          <div class="tv-loading-spinner" aria-hidden="true"></div>
+          <p class="tv-loading-title">Arriving in town…</p>
+          <p class="tv-loading-sub">Materializing your hatchling</p>
+        </div>
+      </div>
+      <div
+        class="tv-playfield"
+        id="tv-playfield"
+        tabindex="0"
+        role="application"
+        aria-label="Town walk: arrows or A D move, Space jump, Down crouch, W or Up flies if you have wings"
+      >
+        <div class="tv-world" id="tv-world">
+          <div class="tv-sky" id="tv-sky"></div>
+          <div class="tv-sun" id="tv-sun" hidden></div>
+          <div class="tv-layers" id="tv-layers"></div>
+          <div class="tv-fog" id="tv-fog"></div>
+          <div class="tv-ground-strip" id="tv-ground-strip"></div>
+          <div
+            id="tv-neighbor-houses"
+            class="tv-neighbor-houses"
+            aria-hidden="true"
+          ></div>
+          <div class="tv-character" id="tv-character" aria-hidden="true">
+            <div class="tv-character-shadow" id="tv-character-shadow"></div>
+            <div class="tv-char-sprite" id="tv-char-sprite">
+              <div class="tv-char-bob" id="tv-char-bob">
+                <div class="tv-char-bob-visual" id="tv-char-bob-visual">
+                  <div class="tv-char-3d-host" id="tv-char-3d-host" aria-hidden="true"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div
+          id="tv-neighbor-prompt"
+          class="tv-neighbor-prompt"
+          hidden
+          role="region"
+          aria-label="Neighbor actions"
+        >
+          <p id="tv-neighbor-prompt-name" class="tv-neighbor-prompt-name"></p>
+          <div class="tv-neighbor-prompt-actions">
+            <button type="button" id="tv-neighbor-add-friend" class="btn-secondary" hidden>
+              Add as friend
+            </button>
+            <p id="tv-neighbor-prompt-pending" class="tv-neighbor-prompt-note" hidden>
+              Friend request pending…
+            </p>
+            <button type="button" id="tv-neighbor-accept" class="btn-secondary" hidden>
+              Accept friend request
+            </button>
+            <button
+              type="button"
+              id="tv-neighbor-portal"
+              class="btn-secondary tv-neighbor-portal-link"
+              hidden
+            >
+              Send portal message
+            </button>
+          </div>
+          <p id="tv-neighbor-prompt-status" class="tv-neighbor-prompt-status" role="status"></p>
+        </div>
+      </div>
+      <p class="tv-hint" id="tv-hint">
+        <kbd>A</kbd>/<kbd>D</kbd> or <kbd>←</kbd><kbd>→</kbd> move · <kbd>Space</kbd> jump · <kbd>S</kbd>/<kbd>↓</kbd> crouch
+        <span id="tv-hint-fly" hidden> · <kbd>W</kbd>/<kbd>↑</kbd> fly</span>
+      </p>
+    </div>
+
+    <script type="module" src="/town-visit.js"></script>
+  </body>
+</html>

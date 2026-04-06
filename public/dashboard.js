@@ -149,8 +149,62 @@ function fillDashboardFrBox(frEl, creatureId) {
   }
 }
 
+async function hydrateDashboardCards(creatures) {
+  const ids = creatures.map((c) => c.id);
+  const [frOk, unreadData, portraitRes] = await Promise.all([
+    loadFriendRequestsCache(),
+    fetch("/api/portal/unread-summary", { credentials: "include" }).then((r) =>
+      r.ok ? r.json().catch(() => ({})) : {}
+    ),
+    fetch("/api/creatures/portraits-bulk", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids }),
+    }).then((r) => (r.ok ? r.json().catch(() => ({})) : {})),
+  ]);
+  void frOk;
+  const portalUnread = unreadData.unreadByCreatureId || {};
+  const portraits = portraitRes.portraits || {};
+
+  creatures.forEach((c, index) => {
+    const li = gridEl?.children[index];
+    if (!li) return;
+    const a = li.querySelector(".dashboard-card");
+    const ph = a?.querySelector(".dashboard-card-placeholder");
+    const portrait = String(portraits[c.id] || "").trim();
+    if (portrait.startsWith("data:") && ph) {
+      const img = document.createElement("img");
+      img.className = "dashboard-card-img";
+      img.src = portrait;
+      img.alt = "";
+      ph.replaceWith(img);
+    }
+
+    const portalNote = li.querySelector(".dashboard-card-portal");
+    if (portalNote) {
+      const hasUnread = Boolean(portalUnread[String(c.id)]);
+      portalNote.classList.toggle("dashboard-card-portal--unread", hasUnread);
+      portalNote.classList.toggle("dashboard-card-portal--clear", !hasUnread);
+      portalNote.textContent = hasUnread
+        ? "Portal: unread messages"
+        : "Portal: no unread messages";
+    }
+
+    const frBox = li.querySelector(".dashboard-card-fr");
+    if (frBox) {
+      frBox.hidden = false;
+      fillDashboardFrBox(frBox, c.id);
+    }
+  });
+}
+
 async function main() {
-  const me = await fetch("/api/auth/me", { credentials: "include" });
+  const [me, sumRes] = await Promise.all([
+    fetch("/api/auth/me", { credentials: "include" }),
+    fetch("/api/creatures/summary", { credentials: "include" }),
+  ]);
+
   if (me.status === 401) {
     window.location.href = "/login.html?next=/dashboard.html";
     return;
@@ -164,27 +218,41 @@ async function main() {
         : "Signed in";
   }
 
-  const res = await fetch("/api/creatures", { credentials: "include" });
   if (loadingEl) loadingEl.hidden = true;
 
-  if (res.status === 503) {
+  if (sumRes.status === 503) {
     showError("Database is not configured on the server.");
     return;
   }
-  if (!res.ok) {
+  if (!sumRes.ok) {
     showError("Could not load your creatures.");
     return;
   }
 
-  const data = await res.json().catch(() => ({}));
+  const data = await sumRes.json().catch(() => ({}));
   const creatures = data.creatures || [];
+
+  const giveSel = document.getElementById("dashboard-give-consciousness");
+  if (giveSel) {
+    giveSel.innerHTML = '<option value="">Give consciousness…</option>';
+    for (const c of creatures) {
+      const opt = document.createElement("option");
+      opt.value = c.id;
+      opt.textContent = c.display_name || c.title || "Creature";
+      giveSel.appendChild(opt);
+    }
+    giveSel.addEventListener("change", () => {
+      const v = giveSel.value;
+      if (!v) return;
+      window.location.href = `/consciousness.html?id=${encodeURIComponent(v)}&maze=cursors-default`;
+      giveSel.value = "";
+    });
+  }
 
   if (creatures.length === 0) {
     emptyEl.hidden = false;
     return;
   }
-
-  await loadFriendRequestsCache();
 
   gridEl.hidden = false;
   gridEl.innerHTML = "";
@@ -206,20 +274,11 @@ async function main() {
     a.className = "dashboard-card";
     a.href = `/my-creature.html?id=${encodeURIComponent(c.id)}`;
 
-    const portrait = String(c.portrait_data_url || "").trim();
-    if (portrait.startsWith("data:")) {
-      const img = document.createElement("img");
-      img.className = "dashboard-card-img";
-      img.src = portrait;
-      img.alt = "";
-      a.appendChild(img);
-    } else {
-      const ph = document.createElement("div");
-      ph.className = "dashboard-card-placeholder";
-      ph.setAttribute("aria-hidden", "true");
-      ph.textContent = placeholderLetter(name);
-      a.appendChild(ph);
-    }
+    const ph = document.createElement("div");
+    ph.className = "dashboard-card-placeholder";
+    ph.setAttribute("aria-hidden", "true");
+    ph.textContent = placeholderLetter(name);
+    a.appendChild(ph);
 
     const cap = document.createElement("div");
     cap.className = "dashboard-card-caption";
@@ -236,6 +295,11 @@ async function main() {
       meta.textContent = "";
     }
     cap.appendChild(meta);
+
+    const portalNote = document.createElement("p");
+    portalNote.className = "dashboard-card-portal dashboard-card-portal--clear";
+    portalNote.textContent = "Portal: no unread messages";
+    cap.appendChild(portalNote);
 
     a.appendChild(cap);
 
@@ -273,16 +337,16 @@ async function main() {
           { method: "DELETE", credentials: "include" }
         );
         const raw = await del.text();
-        let data = {};
+        let delData = {};
         try {
-          data = raw ? JSON.parse(raw) : {};
+          delData = raw ? JSON.parse(raw) : {};
         } catch {
-          data = { message: raw.slice(0, 280) };
+          delData = { message: raw.slice(0, 280) };
         }
         if (!del.ok) {
           alert(
-            data.message ||
-              data.error ||
+            delData.message ||
+              delData.error ||
               `Could not delete (HTTP ${del.status}).`
           );
           killBtn.disabled = false;
@@ -309,11 +373,15 @@ async function main() {
     const frBox = document.createElement("div");
     frBox.className = "dashboard-card-fr";
     frBox.dataset.creatureId = c.id;
-    fillDashboardFrBox(frBox, c.id);
+    frBox.hidden = true;
     li.appendChild(frBox);
 
     gridEl.appendChild(li);
   }
+
+  hydrateDashboardCards(creatures).catch((e) => {
+    console.error(e);
+  });
 
   document.getElementById("dashboard-logout")?.addEventListener("click", async () => {
     await fetch("/api/auth/logout", { method: "POST", credentials: "include" });

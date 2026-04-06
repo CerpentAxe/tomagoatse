@@ -167,6 +167,172 @@
   font-style: italic;
 }
 
+.towns-admin-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.towns-admin-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid rgba(42, 36, 56, 0.1);
+}
+
+.towns-admin-item:last-child {
+  border-bottom: none;
+}
+
+.towns-admin-item a {
+  font-weight: 600;
+  color: var(--mint-dark, #3fa08c);
+  text-decoration: none;
+}
+
+.towns-admin-item a:hover {
+  text-decoration: underline;
+}
+
+.towns-admin-tagline {
+  font-size: 0.85rem;
+  color: rgba(42, 36, 56, 0.6);
+  line-height: 1.35;
+}
+
+.town-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  max-width: 36rem;
+}
+
+.town-edit-field label {
+  display: block;
+  font-weight: 600;
+  font-size: 0.82rem;
+  margin-bottom: 0.25rem;
+}
+
+.town-edit-field input[type="text"],
+.town-edit-field input[type="color"],
+.town-edit-field select,
+.town-edit-field textarea {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 0.45rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid rgba(42, 36, 56, 0.2);
+  font-size: 0.92rem;
+}
+
+.town-edit-field textarea {
+  min-height: 4rem;
+  font-family: inherit;
+}
+
+.town-edit-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+/* Town visit prop matrix (town-visit-matrix.html) — one table per town: glyph | label */
+.town-matrix-root {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  margin-top: 0.5rem;
+}
+
+.town-matrix-town-block {
+  margin: 0;
+}
+
+.town-matrix-town-name {
+  font-family: var(--font-display, "Fredoka", sans-serif);
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+  color: var(--ink, #2a2438);
+}
+
+.town-matrix-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.town-matrix-table--props {
+  width: 100%;
+  max-width: 52rem;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.town-matrix-table--props th,
+.town-matrix-table--props td {
+  border: 1px solid rgba(42, 36, 56, 0.2);
+  padding: 0.45rem 0.65rem;
+  vertical-align: middle;
+}
+
+.town-matrix-table--props thead th {
+  background: rgba(42, 36, 56, 0.07);
+  font-weight: 600;
+  text-align: left;
+}
+
+.town-matrix-th-category {
+  min-width: 11rem;
+  max-width: 14rem;
+}
+
+.town-matrix-th-glyph {
+  width: 4.5rem;
+  text-align: center;
+}
+
+.town-matrix-th-label {
+  text-align: left;
+}
+
+.town-matrix-td-category {
+  text-align: left;
+  font-size: 0.82rem;
+  color: rgba(42, 36, 56, 0.88);
+  vertical-align: top;
+  padding-top: 0.55rem;
+}
+
+.town-matrix-td-glyph {
+  text-align: center;
+  width: 4.75rem;
+  background: rgba(42, 36, 56, 0.03);
+  vertical-align: middle;
+}
+
+.town-matrix-td-glyph .town-matrix-lowpoly {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+}
+
+.town-matrix-td-label {
+  text-align: left;
+}
+
+.town-matrix-empty-cell {
+  color: rgba(42, 36, 56, 0.5);
+  font-style: italic;
+  text-align: center;
+  padding: 0.75rem 1rem;
+}
+
 @media (max-width: 600px) {
   .admin-table {
     display: block;

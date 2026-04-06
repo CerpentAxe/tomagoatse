@@ -16,6 +16,12 @@
     <div class="bg-noise" aria-hidden="true"></div>
     <main class="shell">
       <header class="hero">
+        <div class="hero-note-box" role="note">
+          <p class="hero-note">
+            Most fields are optional—only name, creature type, and pronouns are required; everything else is
+            extra flavour.
+          </p>
+        </div>
         <p class="hero-kicker">
           Wholly original • pocket-sized vibes • gotta hatch ’em all
         </p>
@@ -262,6 +268,18 @@
           </div>
           <p id="caption-intro-text" class="caption-intro-body"></p>
           <p class="caption-intro-hint">Click anywhere to continue</p>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="find-friend-warning-dialog" class="care-dialog find-friend-warning-dialog">
+      <div class="care-dialog-panel find-friend-warning-panel">
+        <p class="care-dialog-line find-friend-warning-text" role="alert">
+          If you click this without saving your Goatse, then you will lose it.
+        </p>
+        <div class="find-friend-warning-actions">
+          <button type="button" class="btn-secondary" id="find-friend-warning-back">Go back</button>
+          <button type="button" class="btn-primary" id="find-friend-warning-proceed">Proceed</button>
         </div>
       </div>
     </dialog>

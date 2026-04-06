@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Edit house — Tomagoatse</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/creator.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="creator-body">
+    <div class="bg-noise" aria-hidden="true"></div>
+    <main class="creator-shell house-edit-shell">
+      <header class="house-edit-header">
+        <div>
+          <h1 class="house-edit-title">Edit house</h1>
+          <p id="house-edit-sub" class="house-edit-sub">
+            Colours follow your creature’s current town. Change town on the creature page to reskin.
+          </p>
+        </div>
+        <div class="house-edit-header-actions">
+          <a id="house-edit-back" class="creator-back" href="/my-creature.html">← Creature</a>
+          <button type="button" id="house-edit-save" class="btn-primary">Save</button>
+        </div>
+      </header>
+
+      <p id="house-edit-loading" class="creator-loading card">Loading…</p>
+      <p id="house-edit-error" class="creator-error card" hidden></p>
+
+      <div id="house-edit-content" class="house-edit-content" hidden>
+        <div class="house-edit-preview card">
+          <h2 class="house-edit-h2">Preview</h2>
+          <p class="house-edit-town-line">
+            Town: <strong id="house-edit-town-name">—</strong>
+            <span class="house-edit-town-hint">(palette source)</span>
+          </p>
+          <div id="house-edit-svg-host" class="house-edit-svg-host"></div>
+        </div>
+
+        <div class="house-edit-form card">
+          <h2 class="house-edit-h2">Options</h2>
+
+          <fieldset class="house-edit-fieldset">
+            <legend>Roof</legend>
+            <div id="house-opt-roof" class="house-edit-radios"></div>
+          </fieldset>
+
+          <fieldset class="house-edit-fieldset">
+            <legend>Stories (body)</legend>
+            <div id="house-opt-stories" class="house-edit-radios"></div>
+          </fieldset>
+
+          <label class="house-edit-slider">
+            Width
+            <input type="range" id="house-width" min="50" max="150" step="5" value="100" />
+            <span id="house-width-val" class="house-edit-range-val">1</span>
+          </label>
+
+          <label class="house-edit-slider">
+            Height
+            <input type="range" id="house-height" min="50" max="150" step="5" value="100" />
+            <span id="house-height-val" class="house-edit-range-val">1</span>
+          </label>
+
+          <fieldset class="house-edit-fieldset">
+            <legend>Door</legend>
+            <div id="house-opt-door" class="house-edit-radios"></div>
+          </fieldset>
+
+          <div class="house-edit-fieldset house-edit-windows-block">
+            <p class="house-edit-windows-legend">Windows per story</p>
+            <p class="house-edit-windows-hint">
+              Each floor has its own count (1–4). Ground floor is story 1.
+            </p>
+            <div id="house-windows-per-story-host" class="house-edit-windows-host"></div>
+          </div>
+
+          <fieldset class="house-edit-fieldset">
+            <legend>Front add-on</legend>
+            <div id="house-opt-addon-front" class="house-edit-radios"></div>
+          </fieldset>
+
+          <fieldset class="house-edit-fieldset">
+            <legend>Left add-on</legend>
+            <div id="house-opt-addon-left" class="house-edit-radios"></div>
+          </fieldset>
+
+          <fieldset class="house-edit-fieldset">
+            <legend>Front accessory</legend>
+            <div id="house-opt-front-acc" class="house-edit-radios"></div>
+          </fieldset>
+
+          <p id="house-edit-status" class="house-edit-status" role="status" aria-live="polite"></p>
+        </div>
+      </div>
+    </main>
+    <script type="module" src="/house-edit.js"></script>
+  </body>
+</html>

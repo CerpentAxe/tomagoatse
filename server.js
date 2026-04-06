@@ -7,6 +7,14 @@ import session from "express-session";
 import path from "path";
 import pg, { escapeLiteral } from "pg";
 import { fileURLToPath } from "url";
+import {
+  applyAdminPatch,
+  getAllMergedScenes,
+  getMergedScene,
+  listMergedScenes,
+} from "./server/town-scenes-store.js";
+import { VISIT_MATRIX_CATEGORIES } from "./server/town-scenes-defaults.js";
+import { mergeHouse, normalizeHouse } from "./public/house-schema.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -202,6 +210,140 @@ function formatProviderError(err) {
   }
 }
 
+/** Vision-capable chat models for maze clean-up (comma-separated in env, or built-in list). */
+function mazeCleanupModelCandidates() {
+  const fromEnv = (process.env.HF_MAZE_CLEANUP_MODELS || "")
+    .split(",")
+    .map((s) => withInferenceRoutingPolicy(s.trim()))
+    .filter(Boolean);
+  /** Avoid models that often return "not supported by any provider" (e.g. Qwen2-VL-2B on default routing). */
+  const builtIns = [
+    "Qwen/Qwen2.5-VL-7B-Instruct:fastest",
+    "meta-llama/Llama-3.2-11B-Vision-Instruct:fastest",
+  ];
+  const out = [];
+  for (const id of [...fromEnv, ...builtIns]) {
+    if (id && !out.includes(id)) out.push(id);
+  }
+  return out;
+}
+
+async function chatMazeCleanupWithFallbacks(hf, messages, opts = {}) {
+  const max_tokens = opts.max_tokens ?? 8192;
+  const temperature = opts.temperature ?? 0.15;
+  const models = mazeCleanupModelCandidates();
+  let lastErr;
+  for (const model of models) {
+    try {
+      return await hf.chatCompletion({
+        model,
+        messages,
+        max_tokens,
+        temperature,
+      });
+    } catch (e) {
+      lastErr = e;
+      console.warn(`[maze-clean-up] ${model} failed:`, e?.httpResponse?.body ?? e?.message ?? e);
+    }
+  }
+  throw lastErr;
+}
+
+function openGridToAsciiForPrompt(open, cols, rows) {
+  const lines = [];
+  for (let j = 0; j < rows; j++) {
+    let line = "";
+    for (let i = 0; i < cols; i++) {
+      line += open[j][i] ? "." : "#";
+    }
+    lines.push(line);
+  }
+  return lines.join("\n");
+}
+
+function assistantMessageContentToString(completion) {
+  const rawMsg = completion?.choices?.[0]?.message?.content;
+  if (typeof rawMsg === "string") return rawMsg;
+  if (Array.isArray(rawMsg)) {
+    return rawMsg
+      .map((part) => {
+        if (typeof part === "string") return part;
+        if (part && typeof part === "object" && "text" in part) {
+          return String(part.text ?? "");
+        }
+        return "";
+      })
+      .join("");
+  }
+  return "";
+}
+
+function extractJsonFromAssistantContent(content) {
+  if (typeof content !== "string") return null;
+  let s = content.trim();
+  const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fence) s = fence[1].trim();
+  try {
+    return JSON.parse(s);
+  } catch {
+    const brace = s.match(/\{[\s\S]*\}/);
+    if (!brace) return null;
+    try {
+      return JSON.parse(brace[0]);
+    } catch {
+      return null;
+    }
+  }
+}
+
+/**
+ * Parse model output: prefer compact {"rows":["010...","..."]}; accept {"open":[[0,1],...]}.
+ */
+function parseMazeCleanupPayload(parsed, cols, rows) {
+  if (!parsed || typeof parsed !== "object") return null;
+  if (Array.isArray(parsed.rows) && parsed.rows.length === rows) {
+    const open = [];
+    for (let j = 0; j < rows; j++) {
+      const row = String(parsed.rows[j] ?? "");
+      if (row.length !== cols) return null;
+      const r = [];
+      for (let i = 0; i < cols; i++) {
+        const ch = row[i];
+        r.push(ch === "1" || ch === 1);
+      }
+      open.push(r);
+    }
+    return open;
+  }
+  const o = parsed.open;
+  if (!Array.isArray(o) || o.length !== rows) return null;
+  const open = [];
+  for (let j = 0; j < rows; j++) {
+    const row = o[j];
+    if (!Array.isArray(row) || row.length !== cols) return null;
+    open.push(
+      row.map((c) => c === true || c === 1 || c === "1")
+    );
+  }
+  return open;
+}
+
+function buildMazeCleanupTextOnlyPrompt(ascii, cols, rows) {
+  return `You fix a noisy maze occupancy grid so it matches a printed maze: **ink lines = walls**, **paper gaps = walkable**.
+
+Grid: ${cols} columns × ${rows} rows (origin top-left, x right, y down).
+
+ASCII below: '#' = wall (line), '.' = floor (blank paper / corridor). Row j=0 is the first line.
+
+${ascii}
+
+Rules: (1) Walls '#' should lie where maze lines run; floors '.' where corridors and open white space are. (2) Remove speckle and fix isolated wrong cells so thin walls stay continuous and paths stay connected like a real maze. (3) Do not turn the whole disk into one big wall or one big floor — follow the line pattern.
+
+Reply with ONLY valid JSON (no markdown):
+{"rows":["0101...","..."]}
+Exactly ${rows} strings in "rows"; each string exactly ${cols} characters; only 0=wall or 1=walkable (1 = floor/path).`;
+}
+
 app.use(express.json({ limit: "25mb" }));
 app.use(sessionMiddleware);
 app.use(express.static(path.join(__dirname, "public")));
@@ -319,6 +461,16 @@ async function initDb() {
   await pgPool.query(`
     CREATE INDEX IF NOT EXISTS idx_portal_ai_jobs_due
       ON portal_ai_jobs (run_at) WHERE processed_at IS NULL;
+  `);
+  await pgPool.query(`
+    CREATE TABLE IF NOT EXISTS portal_thread_read (
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      thread_id TEXT NOT NULL,
+      last_read_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (user_id, thread_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_portal_thread_read_user
+      ON portal_thread_read(user_id);
   `);
   console.log("[db] Users and creatures tables ready.");
 }
@@ -591,6 +743,16 @@ function portalStatePayload(row) {
   };
 }
 
+async function markPortalThreadRead(pool, userId, threadId) {
+  if (!pool || !userId || !threadId) return;
+  await pool.query(
+    `INSERT INTO portal_thread_read (user_id, thread_id, last_read_at)
+     VALUES ($1::uuid, $2, NOW())
+     ON CONFLICT (user_id, thread_id) DO UPDATE SET last_read_at = EXCLUDED.last_read_at`,
+    [userId, threadId]
+  );
+}
+
 function normalizeEmail(s) {
   return String(s || "")
     .trim()
@@ -856,6 +1018,71 @@ app.get("/api/admin/overview", requireAdmin, async (req, res) => {
   }
 });
 
+/** Public: side-scrolling town visit visuals (merged defaults + admin overrides). */
+app.get("/api/town-scenes", async (req, res) => {
+  try {
+    const towns = await listMergedScenes();
+    return res.json({ towns });
+  } catch (e) {
+    console.error("[GET /api/town-scenes]", e);
+    return res.status(500).json({
+      error: "town_scenes_failed",
+      message: String(e?.message || e),
+    });
+  }
+});
+
+app.get("/api/town-scenes/:slug", async (req, res) => {
+  try {
+    const scene = await getMergedScene(req.params.slug);
+    if (!scene) {
+      return res.status(404).json({ error: "not_found", message: "Unknown town." });
+    }
+    return res.json(scene);
+  } catch (e) {
+    console.error("[GET /api/town-scenes/:slug]", e);
+    return res.status(500).json({
+      error: "town_scene_failed",
+      message: String(e?.message || e),
+    });
+  }
+});
+
+app.get("/api/admin/town-scenes", requireAdmin, async (req, res) => {
+  try {
+    const towns = await getAllMergedScenes();
+    return res.json({
+      towns,
+      visitMatrixCategories: VISIT_MATRIX_CATEGORIES,
+    });
+  } catch (e) {
+    console.error("[GET /api/admin/town-scenes]", e);
+    return res.status(500).json({
+      error: "admin_town_scenes_failed",
+      message: String(e?.message || e),
+    });
+  }
+});
+
+app.put("/api/admin/town-scenes/:slug", requireAdmin, async (req, res) => {
+  try {
+    const result = await applyAdminPatch(req.params.slug, req.body || {});
+    if (!result.ok) {
+      return res.status(400).json({
+        error: result.error || "update_failed",
+        message: "Could not update town scene.",
+      });
+    }
+    return res.json({ ok: true, town: result.scene });
+  } catch (e) {
+    console.error("[PUT /api/admin/town-scenes/:slug]", e);
+    return res.status(500).json({
+      error: "admin_town_scene_put_failed",
+      message: String(e?.message || e),
+    });
+  }
+});
+
 app.get("/api/settings", requireAuth, async (req, res) => {
   if (!pgPool) {
     return res.status(503).json({ error: "db_unavailable" });
@@ -944,6 +1171,77 @@ app.get("/api/creatures", requireAuth, async (req, res) => {
     [req.session.userId]
   );
   return res.json({ creatures: r.rows });
+});
+
+/**
+ * Lightweight list for the dashboard: no portrait blobs (fast JSON).
+ */
+app.get("/api/creatures/summary", requireAuth, async (req, res) => {
+  if (!pgPool) {
+    return res.status(503).json({ error: "db_unavailable" });
+  }
+  const r = await pgPool.query(
+    `SELECT id, title, town, updated_at,
+      COALESCE(
+        NULLIF(trim(payload #>> '{hatchery,displayName}'), ''),
+        NULLIF(trim(payload #>> '{creator,session,displayName}'), ''),
+        title
+      ) AS display_name,
+      (
+        NULLIF(trim(COALESCE(payload #>> '{profilePictureDataUrl}', '')), '') IS NOT NULL
+        OR NULLIF(trim(COALESCE(payload #>> '{hatchery,portraitDataUrl}', '')), '') IS NOT NULL
+      ) AS has_portrait
+    FROM creatures
+    WHERE user_id = $1
+    ORDER BY updated_at DESC`,
+    [req.session.userId]
+  );
+  return res.json({ creatures: r.rows });
+});
+
+/**
+ * Portrait data URLs for dashboard cards (bulk). Owner-only; ids must belong to the session user.
+ */
+app.post("/api/creatures/portraits-bulk", requireAuth, async (req, res) => {
+  if (!pgPool) {
+    return res.status(503).json({ error: "db_unavailable" });
+  }
+  const rawIds = req.body?.ids;
+  if (!Array.isArray(rawIds)) {
+    return res.status(400).json({ error: "invalid_body", message: "ids array required." });
+  }
+  const valid = [];
+  for (const x of rawIds) {
+    const u = parseUuidParam(x);
+    if (u && !valid.includes(u)) valid.push(u);
+    if (valid.length >= 64) break;
+  }
+  if (valid.length === 0) {
+    return res.json({ portraits: {} });
+  }
+  try {
+    const r = await pgPool.query(
+      `SELECT id,
+        COALESCE(
+          NULLIF(trim(payload #>> '{profilePictureDataUrl}'), ''),
+          NULLIF(trim(payload #>> '{hatchery,portraitDataUrl}'), '')
+        ) AS portrait_data_url
+      FROM creatures
+      WHERE user_id = $1::uuid AND id = ANY($2::uuid[])`,
+      [req.session.userId, valid]
+    );
+    const portraits = {};
+    for (const row of r.rows) {
+      portraits[String(row.id)] = row.portrait_data_url || null;
+    }
+    return res.json({ portraits });
+  } catch (e) {
+    console.error("[POST /api/creatures/portraits-bulk]", e);
+    return res.status(500).json({
+      error: "load_failed",
+      message: e?.message || "Could not load portraits.",
+    });
+  }
 });
 
 app.post("/api/creatures", requireAuth, async (req, res) => {
@@ -1123,6 +1421,66 @@ app.patch("/api/creatures/:id/profile-picture", requireAuth, async (req, res) =>
   }
 });
 
+/** Save creature.payload.house (layout + addons; colours follow town at render time). */
+app.patch("/api/creatures/:id/house", requireAuth, async (req, res) => {
+  if (!pgPool) {
+    return res.status(503).json({ error: "db_unavailable" });
+  }
+  const creatureId = parseUuidParam(req.params.id);
+  const userId = parseUuidParam(req.session.userId);
+  if (!creatureId || !userId) {
+    return res.status(400).json({
+      error: "invalid_id",
+      message: "Invalid creature or session id.",
+    });
+  }
+  const patch = req.body;
+  if (!patch || typeof patch !== "object" || Array.isArray(patch)) {
+    return res.status(400).json({
+      error: "invalid_body",
+      message: "Request body must be a JSON object.",
+    });
+  }
+  try {
+    const cur = await pgPool.query(
+      `SELECT payload FROM creatures WHERE id = $1::uuid AND user_id = $2::uuid`,
+      [creatureId, userId]
+    );
+    if (!cur.rows.length) {
+      return res.status(404).json({ error: "not_found", message: "Creature not found." });
+    }
+    const payload = cur.rows[0].payload;
+    const prev =
+      payload && typeof payload === "object" && payload.house && typeof payload.house === "object"
+        ? payload.house
+        : {};
+    const merged = mergeHouse(prev, patch);
+    const r = await pgPool.query(
+      `UPDATE creatures SET
+        payload = jsonb_set(
+          COALESCE(payload::jsonb, '{}'::jsonb),
+          '{house}',
+          $1::jsonb,
+          true
+        ),
+        updated_at = NOW()
+      WHERE id = $2::uuid AND user_id = $3::uuid
+      RETURNING id, title, town, payload`,
+      [JSON.stringify(merged), creatureId, userId]
+    );
+    if (!r.rows.length) {
+      return res.status(404).json({ error: "not_found", message: "Creature not found." });
+    }
+    return res.json({ ok: true, house: merged, creature: r.rows[0] });
+  } catch (e) {
+    console.error("[PATCH /api/creatures/:id/house]", e);
+    return res.status(500).json({
+      error: "house_update_failed",
+      message: String(e?.message || e),
+    });
+  }
+});
+
 /**
  * All creatures in a town except one id (same-server neighbors). Logged-in users only.
  * Query: ?town=...&exclude=<uuid>
@@ -1213,6 +1571,117 @@ app.get("/api/towns/mates", requireAuth, async (req, res) => {
     console.error("[GET /api/towns/mates]", e);
     return res.status(500).json({
       error: "townmates_failed",
+      message: String(e?.message || e),
+    });
+  }
+});
+
+/**
+ * Town visit: up to 15 random other creatures in the same town (houses + friendship).
+ * Query: ?town=...&exclude=<uuid>&viewerCreatureId=<uuid>
+ */
+app.get("/api/towns/visit-neighbors", requireAuth, async (req, res) => {
+  if (!pgPool) {
+    return res.status(503).json({ error: "db_unavailable" });
+  }
+  const townRaw = String(req.query.town || "").trim();
+  const town =
+    parseTown(townRaw) || String(townRaw || "").trim() || DEFAULT_TOWN;
+  const exclude = parseUuidParam(req.query.exclude);
+  if (!exclude) {
+    return res.status(400).json({
+      error: "invalid_params",
+      message: "Query parameter exclude (creature UUID) is required.",
+    });
+  }
+  const viewerCreatureId = parseUuidParam(req.query.viewerCreatureId);
+  if (!viewerCreatureId) {
+    return res.status(400).json({
+      error: "invalid_params",
+      message: "Query parameter viewerCreatureId is required.",
+    });
+  }
+  try {
+    const own = await pgPool.query(
+      `SELECT 1 FROM creatures WHERE id = $1::uuid AND user_id = $2::uuid`,
+      [viewerCreatureId, req.session.userId]
+    );
+    if (!own.rows.length) {
+      return res.status(403).json({
+        error: "forbidden",
+        message: "viewerCreatureId must be one of your creatures.",
+      });
+    }
+
+    const r = await pgPool.query(
+      `SELECT c.id, c.title,
+        COALESCE(
+          NULLIF(trim(c.payload #>> '{hatchery,displayName}'), ''),
+          NULLIF(trim(c.payload #>> '{creator,session,displayName}'), ''),
+          c.title
+        ) AS display_name,
+        COALESCE(
+          NULLIF(trim(c.payload #>> '{profilePictureDataUrl}'), ''),
+          NULLIF(trim(c.payload #>> '{hatchery,portraitDataUrl}'), '')
+        ) AS portrait_data_url,
+        u.username AS owner_username,
+        c.payload #> '{house}' AS house_json
+      FROM creatures c
+      INNER JOIN users u ON u.id = c.user_id
+      WHERE c.town = $1 AND c.id <> $2::uuid
+      ORDER BY random()
+      LIMIT 15`,
+      [town, exclude]
+    );
+    const rows = r.rows.map((row) => ({
+      ...row,
+      house: normalizeHouse(row.house_json || {}),
+    }));
+    for (const row of rows) {
+      delete row.house_json;
+    }
+
+    if (rows.length) {
+      const ids = rows.map((x) => x.id);
+      const fr = await pgPool.query(
+        `SELECT id, from_creature_id, to_creature_id, status
+         FROM friend_requests
+         WHERE (from_creature_id = $1::uuid AND to_creature_id = ANY($2::uuid[]))
+            OR (to_creature_id = $1::uuid AND from_creature_id = ANY($2::uuid[]))`,
+        [viewerCreatureId, ids]
+      );
+      const rel = new Map();
+      for (const f of fr.rows) {
+        const other =
+          f.from_creature_id === viewerCreatureId
+            ? f.to_creature_id
+            : f.from_creature_id;
+        let key = "none";
+        if (f.status === "accepted") key = "friends";
+        else if (f.status === "pending") {
+          key =
+            f.from_creature_id === viewerCreatureId
+              ? "pending_out"
+              : "pending_in";
+        } else if (f.status === "declined") {
+          key = "declined";
+        }
+        rel.set(String(other), {
+          request_id: f.id,
+          relationship: key,
+        });
+      }
+      for (const row of rows) {
+        const x = rel.get(String(row.id));
+        row.friendship = x || { relationship: "none" };
+      }
+    }
+
+    return res.json({ town, neighbors: rows });
+  } catch (e) {
+    console.error("[GET /api/towns/visit-neighbors]", e);
+    return res.status(500).json({
+      error: "visit_neighbors_failed",
       message: String(e?.message || e),
     });
   }
@@ -1520,6 +1989,7 @@ app.get("/api/portal/messages", requireAuth, async (req, res) => {
       [threadId]
     );
     const st = await loadPortalStateRow(threadId);
+    await markPortalThreadRead(pgPool, req.session.userId, threadId);
     return res.json({
       messages: m.rows,
       thread_id: threadId,
@@ -1596,6 +2066,7 @@ app.post("/api/portal/messages", requireAuth, async (req, res) => {
       [threadId, selfC, peerC, runPeerAt]
     );
     const st2 = await loadPortalStateRow(threadId);
+    await markPortalThreadRead(pgPool, req.session.userId, threadId);
     return res.status(201).json({
       ...ins.rows[0],
       portal: portalStatePayload(st2),
@@ -1604,6 +2075,209 @@ app.post("/api/portal/messages", requireAuth, async (req, res) => {
     console.error("[POST /api/portal/messages]", e);
     return res.status(500).json({
       error: "message_send_failed",
+      message: String(e?.message || e),
+    });
+  }
+});
+
+/** Per saved creature: whether any friend portal thread has messages newer than last open. */
+app.get("/api/portal/unread-summary", requireAuth, async (req, res) => {
+  if (!pgPool) {
+    return res.status(503).json({ error: "db_unavailable" });
+  }
+  const uid = req.session.userId;
+  try {
+    const r = await pgPool.query(
+      `WITH peers AS (
+        SELECT
+          c.id AS creature_id,
+          CASE
+            WHEN fr.from_creature_id = c.id THEN fr.to_creature_id
+            ELSE fr.from_creature_id
+          END AS peer_id
+        FROM creatures c
+        INNER JOIN friend_requests fr
+          ON fr.status = 'accepted'
+          AND (fr.from_creature_id = c.id OR fr.to_creature_id = c.id)
+        WHERE c.user_id = $1::uuid
+      ),
+      threads AS (
+        SELECT
+          creature_id,
+          peer_id,
+          CASE
+            WHEN lower(creature_id::text) < lower(peer_id::text) THEN
+              lower(creature_id::text) || '_' || lower(peer_id::text)
+            ELSE
+              lower(peer_id::text) || '_' || lower(creature_id::text)
+          END AS thread_id
+        FROM peers
+      ),
+      thread_unread AS (
+        SELECT
+          t.creature_id,
+          EXISTS (
+            SELECT 1
+            FROM creature_messages m
+            WHERE m.thread_id = t.thread_id
+              AND m.created_at > COALESCE(
+                (
+                  SELECT ptr.last_read_at
+                  FROM portal_thread_read ptr
+                  WHERE ptr.user_id = $1::uuid
+                    AND ptr.thread_id = t.thread_id
+                ),
+                '-infinity'::timestamptz
+              )
+          ) AS has_unread
+        FROM threads t
+      )
+      SELECT creature_id::text AS creature_id, BOOL_OR(has_unread) AS portal_unread
+      FROM thread_unread
+      GROUP BY creature_id`,
+      [uid]
+    );
+    const unreadByCreatureId = {};
+    for (const row of r.rows) {
+      unreadByCreatureId[String(row.creature_id)] = Boolean(row.portal_unread);
+    }
+    return res.json({ unreadByCreatureId });
+  } catch (e) {
+    console.error("[GET /api/portal/unread-summary]", e);
+    return res.status(500).json({
+      error: "unread_summary_failed",
+      message: String(e?.message || e),
+    });
+  }
+});
+
+/**
+ * Lightweight list of the user’s creatures and accepted-friend portal threads (no portrait blobs).
+ * For the low-bandwidth inbox page.
+ */
+app.get("/api/portal/inbox", requireAuth, async (req, res) => {
+  if (!pgPool) {
+    return res.status(503).json({ error: "db_unavailable" });
+  }
+  const uid = req.session.userId;
+  try {
+    const cr = await pgPool.query(
+      `SELECT id::text AS id, title,
+        COALESCE(
+          NULLIF(trim(payload #>> '{hatchery,displayName}'), ''),
+          NULLIF(trim(payload #>> '{creator,session,displayName}'), ''),
+          title
+        ) AS display_name,
+        updated_at
+      FROM creatures
+      WHERE user_id = $1::uuid
+      ORDER BY updated_at DESC`,
+      [uid]
+    );
+
+    const tr = await pgPool.query(
+      `WITH peers AS (
+        SELECT
+          c.id AS self_creature_id,
+          CASE
+            WHEN fr.from_creature_id = c.id THEN fr.to_creature_id
+            ELSE fr.from_creature_id
+          END AS peer_creature_id
+        FROM creatures c
+        INNER JOIN friend_requests fr
+          ON fr.status = 'accepted'
+          AND (fr.from_creature_id = c.id OR fr.to_creature_id = c.id)
+        WHERE c.user_id = $1::uuid
+      ),
+      threads AS (
+        SELECT
+          p.self_creature_id,
+          p.peer_creature_id,
+          CASE
+            WHEN lower(p.self_creature_id::text) < lower(p.peer_creature_id::text) THEN
+              lower(p.self_creature_id::text) || '_' || lower(p.peer_creature_id::text)
+            ELSE
+              lower(p.peer_creature_id::text) || '_' || lower(p.self_creature_id::text)
+          END AS thread_id
+        FROM peers p
+      ),
+      last_msg AS (
+        SELECT DISTINCT ON (thread_id)
+          thread_id,
+          body,
+          created_at
+        FROM creature_messages
+        ORDER BY thread_id, created_at DESC
+      )
+      SELECT
+        t.self_creature_id::text AS self_creature_id,
+        t.peer_creature_id::text AS peer_creature_id,
+        t.thread_id,
+        COALESCE(
+          NULLIF(trim(pc.payload #>> '{hatchery,displayName}'), ''),
+          NULLIF(trim(pc.payload #>> '{creator,session,displayName}'), ''),
+          pc.title
+        ) AS peer_display_name,
+        lm.created_at AS last_message_at,
+        LEFT(COALESCE(lm.body, ''), 200) AS last_message_preview,
+        EXISTS (
+          SELECT 1
+          FROM creature_messages m
+          WHERE m.thread_id = t.thread_id
+            AND m.created_at > COALESCE(
+              (
+                SELECT ptr.last_read_at
+                FROM portal_thread_read ptr
+                WHERE ptr.user_id = $1::uuid
+                  AND ptr.thread_id = t.thread_id
+              ),
+              '-infinity'::timestamptz
+            )
+        ) AS has_unread
+      FROM threads t
+      LEFT JOIN creatures pc ON pc.id = t.peer_creature_id
+      LEFT JOIN last_msg lm ON lm.thread_id = t.thread_id
+      ORDER BY peer_display_name ASC`,
+      [uid]
+    );
+
+    const bySelf = new Map();
+    for (const row of cr.rows) {
+      bySelf.set(String(row.id), {
+        id: String(row.id),
+        display_name: row.display_name,
+        title: row.title,
+        updated_at: row.updated_at,
+        threads: [],
+      });
+    }
+
+    let totalUnreadThreads = 0;
+    for (const row of tr.rows) {
+      const s = String(row.self_creature_id);
+      const bucket = bySelf.get(s);
+      if (!bucket) continue;
+      const unread = Boolean(row.has_unread);
+      if (unread) totalUnreadThreads += 1;
+      const at = row.last_message_at;
+      bucket.threads.push({
+        peer_creature_id: String(row.peer_creature_id),
+        peer_display_name: row.peer_display_name || "Friend",
+        thread_id: row.thread_id,
+        has_unread: unread,
+        last_message_at: at ? new Date(at).toISOString() : null,
+        last_message_preview: String(row.last_message_preview || "").trim(),
+      });
+    }
+
+    return res.json({
+      creatures: [...bySelf.values()],
+      total_unread_threads: totalUnreadThreads,
+    });
+  } catch (e) {
+    console.error("[GET /api/portal/inbox]", e);
+    return res.status(500).json({
+      error: "inbox_failed",
       message: String(e?.message || e),
     });
   }
@@ -1772,6 +2446,445 @@ app.get("/api/creatures/:id", requireAuth, async (req, res) => {
     return res.status(404).json({ error: "not_found" });
   }
   return res.json(r.rows[0]);
+});
+
+function sanitizeHexColor(s, fallback) {
+  if (typeof s !== "string") return fallback;
+  const t = s.trim();
+  if (!/^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?([0-9A-Fa-f]{2})?$/.test(t)) {
+    return fallback;
+  }
+  return t;
+}
+
+function sanitizeConsciousnessMazePayload(body, mazeId) {
+  const name = String(body?.name || "Custom maze").trim().slice(0, 96);
+  let cols = parseInt(body?.cols, 10);
+  let rows = parseInt(body?.rows, 10);
+  if (!Number.isFinite(cols)) cols = 9;
+  if (!Number.isFinite(rows)) rows = 9;
+  cols = Math.min(51, Math.max(3, cols));
+  rows = Math.min(51, Math.max(3, rows));
+  const open = body?.open;
+  if (!Array.isArray(open) || open.length !== rows) {
+    throw new Error("invalid_open_rows");
+  }
+  for (let j = 0; j < rows; j++) {
+    if (!Array.isArray(open[j]) || open[j].length !== cols) {
+      throw new Error("invalid_open_cols");
+    }
+  }
+  const openNorm = open.map((row) => row.map((cell) => Boolean(cell)));
+  let anyOpen = false;
+  for (let j = 0; j < rows; j++) {
+    for (let i = 0; i < cols; i++) {
+      if (openNorm[j][i]) anyOpen = true;
+    }
+  }
+  if (!anyOpen) throw new Error("no_open_cells");
+
+  let start = body?.start;
+  let end = body?.end;
+  if (!start || typeof start !== "object") start = { i: 0, j: 0 };
+  if (!end || typeof end !== "object") end = { i: cols - 1, j: rows - 1 };
+  let si = parseInt(start.i, 10);
+  let sj = parseInt(start.j, 10);
+  let ei = parseInt(end.i, 10);
+  let ej = parseInt(end.j, 10);
+  if (!Number.isFinite(si)) si = 0;
+  if (!Number.isFinite(sj)) sj = 0;
+  if (!Number.isFinite(ei)) ei = cols - 1;
+  if (!Number.isFinite(ej)) ej = rows - 1;
+  si = Math.max(0, Math.min(cols - 1, si));
+  sj = Math.max(0, Math.min(rows - 1, sj));
+  ei = Math.max(0, Math.min(cols - 1, ei));
+  ej = Math.max(0, Math.min(rows - 1, ej));
+  if (!openNorm[sj][si]) {
+    outer: for (let j = 0; j < rows; j++) {
+      for (let i = 0; i < cols; i++) {
+        if (openNorm[j][i]) {
+          si = i;
+          sj = j;
+          break outer;
+        }
+      }
+    }
+  }
+  if (!openNorm[ej][ei]) {
+    outer2: for (let j = rows - 1; j >= 0; j--) {
+      for (let i = cols - 1; i >= 0; i--) {
+        if (openNorm[j][i]) {
+          ei = i;
+          ej = j;
+          break outer2;
+        }
+      }
+    }
+  }
+
+  const colorsIn =
+    body?.colors && typeof body.colors === "object" ? body.colors : {};
+  const colors = {
+    floor: sanitizeHexColor(colorsIn.floor, "#c4a574"),
+    wall: sanitizeHexColor(colorsIn.wall, "#5c4a3a"),
+    rim: sanitizeHexColor(colorsIn.rim, "#8b7355"),
+    background: sanitizeHexColor(colorsIn.background, "#d4a574"),
+    fog: sanitizeHexColor(colorsIn.fog, "#c9a66b"),
+  };
+
+  return {
+    id: mazeId,
+    name,
+    kind: "custom",
+    cols,
+    rows,
+    open: openNorm,
+    start: { i: si, j: sj },
+    end: { i: ei, j: ej },
+    colors,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+app.put(
+  "/api/creatures/:creatureId/consciousness-mazes/:mazeId",
+  requireAuth,
+  async (req, res) => {
+    if (!pgPool) {
+      return res.status(503).json({ error: "db_unavailable" });
+    }
+    const creatureId = parseUuidParam(req.params.creatureId);
+    const mazeId = String(req.params.mazeId || "").trim();
+    if (!creatureId || !mazeId || mazeId.length > 120) {
+      return res.status(400).json({
+        error: "invalid_params",
+        message: "Invalid creature or maze id.",
+      });
+    }
+    let maze;
+    try {
+      maze = sanitizeConsciousnessMazePayload(req.body, mazeId);
+    } catch (e) {
+      return res.status(400).json({
+        error: "invalid_maze",
+        message: e?.message || "Invalid maze payload.",
+      });
+    }
+    const userId = parseUuidParam(req.session.userId);
+    if (!userId) {
+      return res.status(401).json({ error: "unauthorized" });
+    }
+    try {
+      const r = await pgPool.query(
+        `SELECT payload FROM creatures WHERE id = $1::uuid AND user_id = $2::uuid`,
+        [creatureId, userId]
+      );
+      if (!r.rows.length) {
+        return res.status(404).json({ error: "not_found" });
+      }
+      const rowPayload = r.rows[0].payload;
+      const payload =
+        rowPayload && typeof rowPayload === "object"
+          ? { ...rowPayload }
+          : {};
+      const list = Array.isArray(payload.consciousnessMazes)
+        ? [...payload.consciousnessMazes]
+        : [];
+      const idx = list.findIndex((m) => m && m.id === mazeId);
+      if (idx >= 0) list[idx] = maze;
+      else list.push(maze);
+      payload.consciousnessMazes = list;
+      const upd = await pgPool.query(
+        `UPDATE creatures SET payload = $1::jsonb, updated_at = NOW() WHERE id = $2::uuid AND user_id = $3::uuid RETURNING id`,
+        [JSON.stringify(payload), creatureId, userId]
+      );
+      if (!upd.rows.length) {
+        return res.status(404).json({ error: "not_found" });
+      }
+      return res.json({ ok: true, maze });
+    } catch (e) {
+      console.error("[PUT /api/creatures/.../consciousness-mazes/...]", e);
+      return res.status(500).json({
+        error: "save_failed",
+        message: e?.message || "Could not save maze.",
+      });
+    }
+  }
+);
+
+/**
+ * Fetch an image from a URL server-side (avoids browser CORS when using a link as maze reference).
+ */
+app.post("/api/consciousness/reference-image-from-url", requireAuth, async (req, res) => {
+  const rawUrl = String(req.body?.url || "").trim();
+  if (rawUrl.length < 8 || rawUrl.length > 2048) {
+    return res.status(400).json({
+      error: "invalid_url",
+      message: "URL looks invalid.",
+    });
+  }
+  let u;
+  try {
+    u = new URL(rawUrl);
+  } catch {
+    return res.status(400).json({
+      error: "invalid_url",
+      message: "Could not parse URL.",
+    });
+  }
+  if (!["http:", "https:"].includes(u.protocol)) {
+    return res.status(400).json({
+      error: "invalid_url",
+      message: "Only http(s) URLs are allowed.",
+    });
+  }
+  const host = u.hostname.toLowerCase();
+  if (
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host === "::1" ||
+    host === "0.0.0.0" ||
+    host.endsWith(".localhost")
+  ) {
+    return res.status(400).json({
+      error: "invalid_url",
+      message: "That URL is not allowed.",
+    });
+  }
+  const ac = new AbortController();
+  const t = setTimeout(() => ac.abort(), 20000);
+  try {
+    const r = await fetch(rawUrl, {
+      redirect: "follow",
+      signal: ac.signal,
+      headers: {
+        Accept:
+          "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        "User-Agent": "Tomagoatse/1 (maze reference image)",
+      },
+    });
+    clearTimeout(t);
+    if (!r.ok) {
+      return res.status(422).json({
+        error: "fetch_failed",
+        message: `The server returned HTTP ${r.status}.`,
+      });
+    }
+    const ct = (r.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+    if (!ct.startsWith("image/")) {
+      return res.status(422).json({
+        error: "not_image",
+        message: "That URL did not return an image (check Content-Type).",
+      });
+    }
+    if (ct.includes("svg")) {
+      return res.status(422).json({
+        error: "unsupported_format",
+        message: "SVG is not supported — use PNG or JPEG.",
+      });
+    }
+    const buf = Buffer.from(await r.arrayBuffer());
+    if (buf.length > 8 * 1024 * 1024) {
+      return res.status(413).json({
+        error: "too_large",
+        message: "Image is larger than 8 MB.",
+      });
+    }
+    if (buf.length < 32) {
+      return res.status(422).json({
+        error: "empty_image",
+        message: "Image too small or empty.",
+      });
+    }
+    const b64 = buf.toString("base64");
+    const dataUrl = `data:${ct};base64,${b64}`;
+    return res.json({ dataUrl });
+  } catch (e) {
+    clearTimeout(t);
+    const msg =
+      e?.name === "AbortError"
+        ? "Request timed out."
+        : e?.message || "Could not fetch image.";
+    return res.status(422).json({ error: "fetch_failed", message: msg });
+  }
+});
+
+/**
+ * Optional BLIP caption for uploaded maze reference images (flavor text in the editor).
+ */
+app.post("/api/consciousness/maze-image-caption", requireAuth, async (req, res) => {
+  if (!hfClient || !HF_API_KEY) {
+    return res.json({ caption: null, skipped: true });
+  }
+  const raw = req.body?.imageBase64;
+  if (typeof raw !== "string" || raw.length < 32) {
+    return res.status(400).json({ error: "invalid_image" });
+  }
+  let b64 = raw;
+  const dataIdx = raw.indexOf("base64,");
+  if (dataIdx !== -1) b64 = raw.slice(dataIdx + 7);
+  let buf;
+  try {
+    buf = Buffer.from(b64, "base64");
+  } catch {
+    return res.status(400).json({ error: "invalid_base64" });
+  }
+  if (buf.length > 12 * 1024 * 1024) {
+    return res.status(413).json({ error: "too_large" });
+  }
+  try {
+    const out = await hfClient.imageToText({
+      data: buf,
+      model: "Salesforce/blip-image-captioning-base",
+    });
+    const caption =
+      typeof out === "string"
+        ? out
+        : out?.generated_text || out?.[0]?.generated_text || null;
+    return res.json({ caption: caption ? String(caption).slice(0, 500) : null });
+  } catch (e) {
+    console.warn("[maze-image-caption]", e?.message || e);
+    return res.json({ caption: null, error: "inference_failed" });
+  }
+});
+
+/**
+ * Vision LLM: compare reference maze image + current editor grid image, return refined walkable grid.
+ */
+app.post("/api/consciousness/maze-clean-up", requireAuth, async (req, res) => {
+  if (!hfClient || !HF_API_KEY) {
+    return res.status(503).json({
+      error: "ai_unavailable",
+      message: "Hugging Face inference is not configured (HF_API_KEY).",
+    });
+  }
+  const cols = parseInt(req.body?.cols, 10);
+  const rows = parseInt(req.body?.rows, 10);
+  const refUrl = req.body?.referenceImageDataUrl;
+  const gridUrl = req.body?.gridImageDataUrl;
+  const openIn = req.body?.open;
+
+  if (
+    !Number.isFinite(cols) ||
+    !Number.isFinite(rows) ||
+    cols < 3 ||
+    rows < 3 ||
+    cols > 51 ||
+    rows > 51
+  ) {
+    return res.status(400).json({ error: "invalid_dimensions" });
+  }
+  if (typeof refUrl !== "string" || !refUrl.startsWith("data:image/")) {
+    return res.status(400).json({
+      error: "invalid_reference",
+      message: "A reference image is required.",
+    });
+  }
+  if (typeof gridUrl !== "string" || !gridUrl.startsWith("data:image/")) {
+    return res.status(400).json({ error: "invalid_grid_image" });
+  }
+  if (!Array.isArray(openIn) || openIn.length !== rows) {
+    return res.status(400).json({ error: "invalid_open" });
+  }
+  for (let j = 0; j < rows; j++) {
+    if (!Array.isArray(openIn[j]) || openIn[j].length !== cols) {
+      return res.status(400).json({ error: "invalid_open" });
+    }
+  }
+
+  const openBool = openIn.map((r) => r.map((c) => !!c));
+  const ascii = openGridToAsciiForPrompt(openBool, cols, rows);
+
+  const alignedUrl = req.body?.referenceAlignedDataUrl;
+  const hasAligned =
+    typeof alignedUrl === "string" && alignedUrl.startsWith("data:image/");
+
+  const imageOrder = hasAligned
+    ? `Images after this text (in order):
+(1) Full reference maze — black **lines** = walls, white **blank spaces** = walkable floors.
+(2) **Per-cell map**: the same artwork scaled to exactly ${cols}×${rows} pixels (nearest-neighbor, sharp). **Each pixel equals one grid cell**: pixel column i, row j matches the JSON cell [j][i]. Dark pixels = ink/walls (0); light pixels = paper/floors (1). This image is the strongest spatial guide — use it so the maze matches the reference at cell resolution.
+(3) Current editor grid (tan = floor, dark brown = wall) — often wrong; **fix it** to match (1) and (2).`
+    : `Images after this text (in order):
+(1) Full reference maze — black **lines** = walls, white **blank spaces** = floors.
+(2) Current editor grid (tan = floor, dark brown = wall) — correct it to match the reference.`;
+
+  const instruction = `You convert a printed maze into a square cell grid. **Ink lines = walls (0); blank paper = walkable floor (1).**
+
+${imageOrder}
+
+Exact grid: ${cols} columns (i = 0..${cols - 1}) × ${rows} rows (j = 0..${rows - 1}), origin top-left.
+
+ASCII hint ('.' = floor, '#' = wall) — current guess, row j=0 first:
+${ascii}
+
+Reply with ONLY valid JSON (no markdown):
+{"rows":["0101...","..."]}
+Exactly ${rows} strings in "rows"; each string exactly ${cols} characters; only 0 (wall) and 1 (floor). First string is j=0.`;
+
+  const userContent = [
+    { type: "text", text: instruction },
+    { type: "image_url", image_url: { url: refUrl } },
+  ];
+  if (hasAligned) {
+    userContent.push({ type: "image_url", image_url: { url: alignedUrl } });
+  }
+  userContent.push({ type: "image_url", image_url: { url: gridUrl } });
+
+  let text = "";
+  try {
+    const completion = await chatMazeCleanupWithFallbacks(hfClient, [
+      {
+        role: "system",
+        content:
+          "You output only valid JSON for maze grids. Black lines = walls (0). White/light paper = floors (1). Match the reference; use the per-cell miniature when provided. Dimensions must match exactly.",
+      },
+      { role: "user", content: userContent },
+    ]);
+    text = assistantMessageContentToString(completion);
+  } catch (visionErr) {
+    console.warn(
+      "[maze-clean-up] vision models failed; trying text-only cleanup",
+      visionErr?.message
+    );
+    try {
+      const completion = await chatCompletionWithFallbacks(
+        hfClient,
+        buildMazeCleanupTextOnlyPrompt(ascii, cols, rows),
+        { max_tokens: 8192, temperature: 0.15 }
+      );
+      text = assistantMessageContentToString(completion);
+    } catch (textErr) {
+      console.error("[maze-clean-up]", textErr);
+      return res.status(503).json({
+        error: "inference_failed",
+        message: formatProviderError(textErr),
+      });
+    }
+  }
+
+  const parsed = extractJsonFromAssistantContent(text);
+  const openOut = parseMazeCleanupPayload(parsed, cols, rows);
+  if (!openOut) {
+    return res.status(422).json({
+      error: "parse_failed",
+      message:
+        "The model response could not be parsed. Try again, or set HF_MAZE_CLEANUP_MODELS to vision models your account can run.",
+    });
+  }
+  let anyOpen = false;
+  for (let j = 0; j < rows; j++) {
+    for (let i = 0; i < cols; i++) {
+      if (openOut[j][i]) anyOpen = true;
+    }
+  }
+  if (!anyOpen) {
+    return res.status(422).json({
+      error: "empty_maze",
+      message: "The model returned no walkable cells.",
+    });
+  }
+
+  return res.json({ open: openOut, cols, rows });
 });
 
 app.delete("/api/creatures/:id", requireAuth, async (req, res) => {
@@ -2175,6 +3288,7 @@ function buildHeuristicCreatorSpec(body) {
       type: isSnake ? "none" : /dragon|drake/.test(ct) ? "dragon" : pick(tailTypes, h),
     },
     haircut: pick(haircuts, h),
+    hairColour: "#553322",
   };
 }
 
@@ -2270,6 +3384,7 @@ function normalizeCreatorSpec(raw, ctx = {}) {
       type: pickEnum(tailIn.type, CREATOR_TAIL_TYPES, "normal"),
     },
     haircut: pickEnum(o.haircut, CREATOR_HAIRCUTS, "Layered"),
+    hairColour: String(o.hairColour || "#553322").slice(0, 32),
   };
 }
 
@@ -2357,7 +3472,8 @@ Required JSON shape and ENUMS (use exact strings):
     "length": "short"|"medium"|"long",
     "type": "none"|"normal"|"tentacles"|"dragon"|"nubbin"
   },
-  "haircut": one of "Bald"|"Long and flowing"|"Curly"|"Spiky"|"Mohawk"|"Braided"|"Buzz cut"|"Afro/fluffy"|"Dreadlocks/matted"|"Layered"
+  "haircut": one of "Bald"|"Long and flowing"|"Curly"|"Spiky"|"Mohawk"|"Braided"|"Buzz cut"|"Afro/fluffy"|"Dreadlocks/matted"|"Layered",
+  "hairColour": "#RRGGBB"
 }
 
 Rules:
